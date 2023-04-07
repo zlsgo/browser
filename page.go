@@ -78,7 +78,9 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 					})
 				}
 			})
-			defer stop()
+			if !o.Keep {
+				defer stop()
+			}
 		}
 	}
 
