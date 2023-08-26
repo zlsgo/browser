@@ -47,7 +47,7 @@ func setLeakless(b *Browser) {
 	}
 	if b.options.AutoKill && !b.options.Leakless {
 		go func() {
-			zcli.KillSignal()
+			<-zcli.SingleKillSignal()
 			b.Close()
 		}()
 	}
