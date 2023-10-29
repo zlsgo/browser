@@ -44,6 +44,13 @@ func New(opts ...func(o *Options)) (*Browser, error) {
 		return nil, err
 	}
 
+	if o.Incognito {
+		b.Browser, err = b.Browser.Incognito()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	for _, v := range b.after {
 		v()
 	}

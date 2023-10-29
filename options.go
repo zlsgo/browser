@@ -16,6 +16,7 @@ type Options struct {
 	Devtools      bool           // Devtools 是否开启调试工具
 	UserDataDir   string         // UserDataDir 用户数据保存目录
 	UserMode      bool           // NewUserMode 是否新建用户模式
+	Incognito     bool           // Incognito 是否使用隐身模式
 	Timeout       time.Duration  // Timeout 超时时间
 	DefaultDevice devices.Device // DefaultDevice 默认设备
 	Leakless      bool           // Leakless 是否禁止 Leakless 防止报毒
