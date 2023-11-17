@@ -62,6 +62,13 @@ func (b *Browser) Kill() {
 	b.launcher.Kill()
 }
 
+func (b *Browser) NewIncognito() *Browser {
+	incognito, _ := b.Browser.Incognito()
+	browser := *b
+	browser.Browser = incognito
+	return &browser
+}
+
 func (b *Browser) Close() error {
 	return b.Browser.Close()
 }
