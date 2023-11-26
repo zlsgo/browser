@@ -72,7 +72,7 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 				for k, v := range o.Hijack {
 					router.MustAdd(k, func(ctx *rod.Hijack) {
 						ok := v(&Hijack{ctx})
-						if ok {
+						if !ok {
 							ctx.ContinueRequest(&proto.FetchContinueRequest{})
 						}
 					})
