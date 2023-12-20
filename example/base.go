@@ -6,7 +6,9 @@ import (
 )
 
 func main() {
-	b, err := browser.New()
+	b, err := browser.New(func(o *browser.Options) {
+		o.Flags = map[string]string{"--blink-settings": "imagesEnabled=false"}
+	})
 	if err != nil {
 		zlog.Error(err)
 		return
@@ -16,5 +18,4 @@ func main() {
 		zlog.Info(p.MustElement("title").Text())
 		return nil
 	})
-
 }

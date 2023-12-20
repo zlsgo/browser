@@ -15,11 +15,12 @@ type Page struct {
 }
 
 type PageOptions struct {
-	Timeout time.Duration
-	Device  devices.Device
-	Keep    bool
-	Network func(p *proto.NetworkEmulateNetworkConditions)
-	Hijack  map[string]HijackProcess
+	Timeout        time.Duration
+	Device         devices.Device
+	Keep           bool
+	TriggerFavicon bool
+	Network        func(p *proto.NetworkEmulateNetworkConditions)
+	Hijack         map[string]HijackProcess
 }
 
 func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *PageOptions)) error {
@@ -43,18 +44,25 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 		for _, opt := range opts {
 			opt(&o)
 		}
+
 		if !o.Keep {
 			defer page.Close()
 		}
+
 		if o.Timeout != 0 {
 			page = page.Timeout(o.Timeout)
 		} else if b.options.Timeout != 0 {
 			page = page.Timeout(b.options.Timeout)
 		}
 
+		if o.TriggerFavicon {
+			page.TriggerFavicon()
+		}
+
 		if o.Device.Title != "" {
 			page = page.MustEmulate(o.Device)
 		}
+
 		if o.Network != nil {
 			page.EnableDomain(proto.NetworkEnable{})
 			network := proto.NetworkEmulateNetworkConditions{

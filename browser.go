@@ -40,6 +40,7 @@ func New(opts ...func(o *Options)) (*Browser, error) {
 	}
 
 	b.Browser = rod.New().ControlURL(launch)
+
 	if err = b.Browser.Connect(); err != nil {
 		return nil, err
 	}
@@ -49,6 +50,10 @@ func New(opts ...func(o *Options)) (*Browser, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if o.IgnoreCertError {
+		b.Browser.IgnoreCertErrors(true)
 	}
 
 	for _, v := range b.after {
