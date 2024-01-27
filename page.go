@@ -45,10 +45,6 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 			opt(&o)
 		}
 
-		if !o.Keep {
-			defer page.Close()
-		}
-
 		if o.Timeout != 0 {
 			page = page.Timeout(o.Timeout)
 		} else if b.options.Timeout != 0 {
@@ -91,6 +87,12 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 			}
 		}
 	}
+
+	defer func() {
+		if !o.Keep || err != nil {
+			page.Close()
+		}
+	}()
 
 	err = page.Navigate(url)
 	if err != nil {
