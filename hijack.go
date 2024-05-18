@@ -11,27 +11,30 @@ import (
 	"github.com/sohaha/zlsgo/zhttp"
 )
 
-type HijackRouter struct {
-	router *rod.HijackRouter
-}
-
-func (h *HijackRouter) Add(pattern string, handler func(*Hijack) bool) {
-	h.router.Add(pattern, "", func(h *rod.Hijack) {
-		handler(&Hijack{h})
-	})
-}
-
 type Hijack struct {
 	*rod.Hijack
+	client *zhttp.Engine
+	abort  bool
 }
 
-func NewHijackRouter(fn func(b *Hijack) bool) map[string]HijackProcess {
+func (h *Hijack) Abort() {
+	h.abort = true
+}
+
+func newHijacl(h *rod.Hijack, client *zhttp.Engine) *Hijack {
+	return &Hijack{
+		client: client,
+		Hijack: h,
+	}
+}
+
+func HijackAllRouter(fn func(b *Hijack) (stop bool)) map[string]HijackProcess {
 	return map[string]HijackProcess{
 		"*": fn,
 	}
 }
 
-type HijackProcess func(router *Hijack) bool
+type HijackProcess func(router *Hijack) (stop bool)
 
 type HijackData struct {
 	URL            *url.URL
@@ -50,6 +53,7 @@ func (h *Hijack) HijackRequests(fn func(d *HijackData, err error) bool) bool {
 			Header: h.Hijack.Request.Req().Header,
 			Method: h.Hijack.Request.Method(),
 		}
+
 		// reqBytes, _ = httputil.DumpRequest(h.Hijack.Request.Req(), true)
 
 		if h.Hijack.Request.Method() == http.MethodPost {
@@ -59,7 +63,7 @@ func (h *Hijack) HijackRequests(fn func(d *HijackData, err error) bool) bool {
 			h.Hijack.Request.Req().Body = body
 		}
 
-		err := h.Hijack.LoadResponse(zhttp.Client(), true)
+		err := h.Hijack.LoadResponse(h.client.Client(), true)
 		if err == nil {
 			data.StatusCode = h.Hijack.Response.Payload().ResponseCode
 			data.Response = h.Hijack.Response.Payload().Body
@@ -72,70 +76,34 @@ func (h *Hijack) HijackRequests(fn func(d *HijackData, err error) bool) bool {
 	return false
 }
 
-func (h *Hijack) BlockDispensable() bool {
-	if h.BlockFont() || h.BlockImage() || h.BlockMedia() || h.BlockCSS() || h.BlockFont() || h.BlockPrefetch() || h.BlockFavicon() {
-		return true
-	}
-
-	return false
+func (h *Hijack) IsDispensable() bool {
+	return h.IsFont() || h.IsImage() || h.IsMedia() || h.IsCSS() || h.IsFont() || h.IsPrefetch() || h.IsFavicon()
 }
 
-func (h *Hijack) BlockFavicon() bool {
-	path := h.Hijack.Request.URL().Path
-	if path == "/favicon.ico" {
-		h.Hijack.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-		return true
-	}
-
-	return false
+func (h *Hijack) IsFavicon() bool {
+	return h.Hijack.Request.URL().Path == "/favicon.ico"
 }
 
-func (h *Hijack) BlockFont() bool {
-	if h.Hijack.Request.Type() == proto.NetworkResourceTypeFont {
-		h.Hijack.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-		return true
-	}
-
-	return false
+func (h *Hijack) IsFont() bool {
+	return h.Hijack.Request.Type() == proto.NetworkResourceTypeFont
 }
 
-func (h *Hijack) BlockPrefetch() bool {
-	if h.Hijack.Request.Type() == proto.NetworkResourceTypePrefetch {
-		h.Hijack.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-		return true
-	}
-
-	return false
+func (h *Hijack) IsPrefetch() bool {
+	return h.Hijack.Request.Type() == proto.NetworkResourceTypePrefetch
 }
 
-func (h *Hijack) BlockMedia() bool {
-	if h.Hijack.Request.Type() == proto.NetworkResourceTypeMedia {
-		h.Hijack.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-		return true
-	}
-	return false
+func (h *Hijack) IsMedia() bool {
+	return h.Hijack.Request.Type() == proto.NetworkResourceTypeMedia
 }
 
-func (h *Hijack) BlockJS() bool {
-	if h.Hijack.Request.Type() == proto.NetworkResourceTypeScript {
-		h.Hijack.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-		return true
-	}
-	return false
+func (h *Hijack) IsJS() bool {
+	return h.Hijack.Request.Type() == proto.NetworkResourceTypeScript
 }
 
-func (h *Hijack) BlockCSS() bool {
-	if h.Hijack.Request.Type() == proto.NetworkResourceTypeStylesheet {
-		h.Hijack.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-		return true
-	}
-	return false
+func (h *Hijack) IsCSS() bool {
+	return h.Hijack.Request.Type() == proto.NetworkResourceTypeStylesheet
 }
 
-func (h *Hijack) BlockImage() bool {
-	if h.Hijack.Request.Type() == proto.NetworkResourceTypeImage {
-		h.Hijack.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
-		return true
-	}
-	return false
+func (h *Hijack) IsImage() bool {
+	return h.Hijack.Request.Type() == proto.NetworkResourceTypeImage
 }
