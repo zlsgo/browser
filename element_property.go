@@ -27,3 +27,7 @@ func (e *Element) HTML() (string, error) {
 func (e *Element) MustHTML() string {
 	return e.element.MustHTML()
 }
+
+func (e *Element) HasClassName(className string) bool {
+	return e.element.MustEval(`()=>this.classList.contains("` + className + `")`).Bool()
+}
