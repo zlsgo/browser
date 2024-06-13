@@ -159,7 +159,6 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 				return nil, err
 			}
 			return ele.element, nil
-
 		}).MustHandle(func(element *rod.Element) {
 			name = k
 
@@ -168,7 +167,12 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 				page:    page,
 			}
 			if v.Handle != nil {
-				retry, err = v.Handle(ele)
+				if e := zerror.TryCatch(func() error {
+					retry, err = v.Handle(ele)
+					return nil
+				}); e != nil {
+					retry = true
+				}
 			}
 		})
 	}
@@ -262,10 +266,8 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 				_ = router.Add("*", "", func(ctx *rod.Hijack) {
 					hijaclProcess(newHijacl(ctx, b.client), func(router *Hijack) (stop bool) {
 						return false
-
 					})
 				})
-
 			})
 			if !o.Keep {
 				defer func() {
