@@ -36,12 +36,13 @@ func (page *Page) NavigateWaitLoad(url string) (err error) {
 		url = "about:blank"
 	}
 
-	if err := page.page.Navigate(url); err != nil {
+	if err := page.Timeout().page.Navigate(url); err != nil {
 		return err
 	}
 
 	if url != "about:blank" {
-		_, err = page.Timeout().page.Eval(jsWaitDOMContentLoad)
+		// _, err = page.Timeout().page.Eval(jsWaitDOMContentLoad)
+		_, err = page.Timeout().page.Eval(jsWaitLoad)
 	}
 
 	return err
