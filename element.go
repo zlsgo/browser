@@ -10,7 +10,9 @@ import (
 type Element struct {
 	element *rod.Element
 	page    *Page
+	timeout time.Duration
 }
+
 type Elements []*Element
 
 func (e *Element) ROD() *rod.Element {
@@ -23,13 +25,14 @@ func (e *Element) Timeout(d ...time.Duration) *Element {
 		page:    e.page,
 	}
 	if len(d) > 0 {
-		p.element = e.element.Timeout(d[0])
+		p.timeout = d[0]
 	} else if e.page.Options.Timeout != 0 {
-		p.element = e.element.Timeout(e.page.Options.Timeout)
+		p.timeout = e.page.Options.Timeout
 	} else if e.page.browser.options.Timeout != 0 {
-		p.element = e.element.Timeout(e.page.browser.options.Timeout)
+		p.timeout = e.page.browser.options.Timeout
 	}
 
+	p.element = e.element.Timeout(p.timeout)
 	return p
 }
 

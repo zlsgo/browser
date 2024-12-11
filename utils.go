@@ -3,7 +3,9 @@ package browser
 import (
 	"bytes"
 	"io"
+	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/go-rod/rod/lib/proto"
 )
@@ -28,4 +30,9 @@ func transformHeaders(h []*proto.FetchHeaderEntry) http.Header {
 		newHeader.Add(data.Name, data.Value)
 	}
 	return newHeader
+}
+
+// RandomSleep 随机暂停指定时间范围，单位毫秒
+func RandomSleep(ms, maxMS int) {
+	time.Sleep(time.Millisecond * time.Duration(ms+rand.Intn(maxMS)))
 }

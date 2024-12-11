@@ -16,6 +16,7 @@ type Page struct {
 	page    *rod.Page
 	Options PageOptions
 	browser *Browser
+	timeout time.Duration
 }
 
 func (page *Page) ROD() *rod.Page {
@@ -24,6 +25,23 @@ func (page *Page) ROD() *rod.Page {
 
 func (page *Page) Browser() *Browser {
 	return page.browser
+}
+
+func (page *Page) WrapNavigateComplete(fn func() error, d ...time.Duration) (err error) {
+	p := page.page
+	if len(d) > 0 {
+		p = p.Timeout(d[0])
+	} else if page.timeout != 0 {
+		p = p.Timeout(page.timeout)
+	}
+
+	wait := p.MustWaitNavigation()
+	err = fn()
+	if err != nil {
+		return
+	}
+	wait()
+	return
 }
 
 func (page *Page) WaitLoad(d ...time.Duration) (err error) {
@@ -54,14 +72,18 @@ func (page *Page) Timeout(d ...time.Duration) *Page {
 		Options: page.Options,
 		browser: page.browser,
 	}
+
 	if len(d) > 0 {
-		p.page = page.page.Timeout(d[0])
+		p.timeout = d[0]
 	} else if page.Options.Timeout != 0 {
-		p.page = page.page.Timeout(page.Options.Timeout)
+		p.timeout = page.Options.Timeout
 	} else if page.browser.options.Timeout != 0 {
-		p.page = page.page.Timeout(page.browser.options.Timeout)
+		p.timeout = page.browser.options.Timeout
 	}
 
+	if p.timeout != 0 {
+		p.page = page.page.Timeout(p.timeout)
+	}
 	return p
 }
 

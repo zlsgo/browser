@@ -161,7 +161,6 @@ func setLeakless(b *Browser) {
 	b.launcher.Leakless(b.options.Leakless)
 
 	go func() {
-
 		<-zcli.SingleKillSignal()
 
 		if b.launcher.PID() != 0 {
@@ -230,8 +229,6 @@ func setDebug(b *Browser) {
 	}
 
 	if debug {
-		b.launcher.Headless(false)
-
 		b.after = append(b.after, func() {
 			b.Browser.Trace(true)
 			b.Browser.SlowMotion(b.options.SlowMotion)
