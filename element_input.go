@@ -1,13 +1,11 @@
 package browser
 
 import (
-	"errors"
-
 	"github.com/go-rod/rod/lib/input"
 )
 
-// FindTextInputElement  find text input element
-func (e *Element) FindTextInputElement(selector ...string) (elm *Element, has bool, err error) {
+// FindTextInputElement 查找输入框
+func (e *Element) FindTextInputElement(selector ...string) (element *Element, has bool) {
 	var s string
 	if len(selector) > 0 {
 		s = selector[0]
@@ -15,14 +13,14 @@ func (e *Element) FindTextInputElement(selector ...string) (elm *Element, has bo
 		s = "input"
 	}
 
-	var elms Elements
-	elms, has, err = e.Elements(s)
-	if err != nil || !has {
+	var elements Elements
+	elements, has = e.Elements(s)
+	if !has {
 		return
 	}
 
-	for i := range elms {
-		child := elms[i].ROD()
+	for i := range elements {
+		child := elements[i].ROD()
 		visible, _ := child.Visible()
 		if !visible {
 			continue
@@ -36,12 +34,13 @@ func (e *Element) FindTextInputElement(selector ...string) (elm *Element, has bo
 		if typ.String() != "text" && typ.String() != "search" {
 			continue
 		}
-		return &Element{element: child, page: e.page}, true, nil
+		return &Element{element: child, page: e.page}, true
 	}
 
-	return nil, false, errors.New("not found")
+	return nil, false
 }
 
+// InputText 输入文字
 func (e *Element) InputText(text string, clear ...bool) error {
 	if len(clear) > 0 && clear[0] {
 		_ = e.element.SelectAllText()
@@ -50,6 +49,7 @@ func (e *Element) InputText(text string, clear ...bool) error {
 	return e.element.Input(text)
 }
 
+// InputEnter 输入回车
 func (e *Element) InputEnter(presskeys ...input.Key) error {
 	return e.page.page.KeyActions().Press(presskeys...).Type(input.Enter).Do()
 }

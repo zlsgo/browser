@@ -13,10 +13,11 @@ import (
 )
 
 type Page struct {
-	page    *rod.Page
-	Options PageOptions
-	browser *Browser
-	timeout time.Duration
+	page             *rod.Page
+	Options          PageOptions
+	browser          *Browser
+	timeout          time.Duration
+	propagateTimeout bool
 }
 
 func (page *Page) ROD() *rod.Page {
@@ -27,19 +28,16 @@ func (page *Page) Browser() *Browser {
 	return page.browser
 }
 
-func (page *Page) WrapNavigateComplete(fn func() error, d ...time.Duration) (err error) {
+// MustNavigateComplete 等待页面加载完成
+func (page *Page) MustNavigateComplete(fn func(), d ...time.Duration) {
 	p := page.page
 	if len(d) > 0 {
 		p = p.Timeout(d[0])
 	} else if page.timeout != 0 {
 		p = p.Timeout(page.timeout)
 	}
-
 	wait := p.MustWaitNavigation()
-	err = fn()
-	if err != nil {
-		return
-	}
+	fn()
 	wait()
 	return
 }
@@ -49,7 +47,7 @@ func (page *Page) WaitLoad(d ...time.Duration) (err error) {
 	return
 }
 
-func (page *Page) NavigateWaitLoad(url string) (err error) {
+func (page *Page) NavigateLoad(url string) (err error) {
 	if url == "" {
 		url = "about:blank"
 	}
@@ -57,13 +55,30 @@ func (page *Page) NavigateWaitLoad(url string) (err error) {
 	if err := page.Timeout().page.Navigate(url); err != nil {
 		return err
 	}
+	return nil
+}
 
-	if url != "about:blank" {
-		// _, err = page.Timeout().page.Eval(jsWaitDOMContentLoad)
-		_, err = page.Timeout().page.Eval(jsWaitLoad)
+func (page *Page) NavigateWaitLoad(url string) (err error) {
+	err = page.NavigateLoad(url)
+
+	if err == nil && url != "about:blank" {
+		_, err = page.Timeout().page.Eval(jsWaitDOMContentLoad)
 	}
 
 	return err
+}
+
+// WithTimeout 包裹一个内置的超时处理
+func (page *Page) WithTimeout(d time.Duration, fn func(page *Page) error) error {
+	return fn(page.Timeout(d))
+}
+
+// MustWithTimeout 包裹一个内置的超时处理，如果超时会panic
+func (page *Page) MustWithTimeout(d time.Duration, fn func(page *Page) error) {
+	err := page.WithTimeout(d, fn)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (page *Page) Timeout(d ...time.Duration) *Page {
@@ -72,9 +87,9 @@ func (page *Page) Timeout(d ...time.Duration) *Page {
 		Options: page.Options,
 		browser: page.browser,
 	}
-
 	if len(d) > 0 {
 		p.timeout = d[0]
+	} else if p.timeout != 0 {
 	} else if page.Options.Timeout != 0 {
 		p.timeout = page.Options.Timeout
 	} else if page.browser.options.Timeout != 0 {
@@ -84,29 +99,38 @@ func (page *Page) Timeout(d ...time.Duration) *Page {
 	if p.timeout != 0 {
 		p.page = page.page.Timeout(p.timeout)
 	}
+
 	return p
 }
 
-func (page *Page) Element(selector string, jsRegex ...string) (ele *Element, has bool, err error) {
-	var e *rod.Element
+func (page *Page) Element(selector string, jsRegex ...string) (ele *Element, has bool) {
+	var (
+		e   *rod.Element
+		err error
+	)
+
+	if page.propagateTimeout {
+		page = page.Timeout()
+	}
+
 	if len(jsRegex) == 0 {
-		has, e, err = page.page.Has(selector)
+		e, err = page.page.Element(selector)
 	} else {
-		has, e, err = page.page.HasR(selector, jsRegex[0])
+		e = page.page.MustElementByJS(selector, jsRegex[0])
 	}
 	if err != nil {
 		return
 	}
 
-	ele = &Element{
+	return &Element{
 		element: e,
 		page:    page,
-	}
-	return
+	}, true
 }
 
 func (page *Page) MustElement(selector string, jsRegex ...string) (ele *Element) {
-	element, has, err := page.Element(selector, jsRegex...)
+	var err error
+	element, has := page.Element(selector, jsRegex...)
 	if !has {
 		err = &rod.ElementNotFoundError{}
 	}
@@ -117,12 +141,15 @@ func (page *Page) MustElement(selector string, jsRegex ...string) (ele *Element)
 	return element
 }
 
-func (page *Page) Elements(selector string) (elems Elements, has bool, err error) {
-	var es rod.Elements
-	es, err = page.page.Elements(selector)
+func (page *Page) Elements(selector string) (elements Elements, has bool) {
+	if page.propagateTimeout {
+		page = page.Timeout()
+	}
+
+	es, err := page.page.Elements(selector)
 	if err != nil {
 		if errors.Is(err, &rod.ElementNotFoundError{}) {
-			return Elements{}, false, err
+			return Elements{}, false
 		}
 		return
 	}
@@ -130,7 +157,7 @@ func (page *Page) Elements(selector string) (elems Elements, has bool, err error
 	has = len(es) > 0
 
 	for _, e := range es {
-		elems = append(elems, &Element{
+		elements = append(elements, &Element{
 			element: e,
 			page:    page,
 		})
@@ -139,12 +166,8 @@ func (page *Page) Elements(selector string) (elems Elements, has bool, err error
 	return
 }
 
-func (page *Page) MustElements(selector string) (elems Elements) {
-	element, has, err := page.Elements(selector)
-	if err != nil {
-		panic(err)
-	}
-
+func (page *Page) MustElements(selector string) (elements Elements) {
+	element, has := page.Elements(selector)
 	if !has {
 		panic(&rod.ElementNotFoundError{})
 	}
@@ -205,12 +228,9 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 	}
 
 	if err == nil && retry {
-		_ = page.WaitLoad()
-
 		url := info.URL
 		err = page.NavigateWaitLoad(url)
 		if err == nil {
-			_ = page.WaitLoad()
 			return page.RaceElement(elements)
 		}
 	}
@@ -316,7 +336,7 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 		p.page.MustEvalOnNewDocument(b.options.Scripts[i])
 	}
 
-	if err = p.NavigateWaitLoad(url); err != nil {
+	if err = p.NavigateLoad(url); err != nil {
 		return zerror.With(err, "failed to open the page")
 	}
 

@@ -1,7 +1,6 @@
 package browser
 
 import (
-	"errors"
 	"time"
 
 	"github.com/go-rod/rod"
@@ -10,7 +9,6 @@ import (
 type Element struct {
 	element *rod.Element
 	page    *Page
-	timeout time.Duration
 }
 
 type Elements []*Element
@@ -20,68 +18,59 @@ func (e *Element) ROD() *rod.Element {
 }
 
 func (e *Element) Timeout(d ...time.Duration) *Element {
-	p := &Element{
+	if len(d) > 0 {
+		e.element = e.element.Timeout(d[0])
+	} else {
+		e.element = e.element.Timeout(e.page.timeout)
+	}
+
+	return &Element{
 		element: e.element,
 		page:    e.page,
 	}
-	if len(d) > 0 {
-		p.timeout = d[0]
-	} else if e.page.Options.Timeout != 0 {
-		p.timeout = e.page.Options.Timeout
-	} else if e.page.browser.options.Timeout != 0 {
-		p.timeout = e.page.browser.options.Timeout
-	}
-
-	p.element = e.element.Timeout(p.timeout)
-	return p
 }
 
-func (e *Element) Element(selector string, jsRegex ...string) (elm *Element, has bool, err error) {
-	var relm *rod.Element
+func (e *Element) Element(selector string, jsRegex ...string) (element *Element, has bool) {
+	var (
+		relm *rod.Element
+		err  error
+	)
 	if len(jsRegex) == 0 {
-		has, relm, err = e.element.Has(selector)
+		relm, err = e.element.Element(selector)
 	} else {
-		has, relm, err = e.element.HasR(selector, jsRegex[0])
+		relm, err = e.element.ElementR(selector, jsRegex[0])
 	}
+
 	if err != nil {
 		return
 	}
-	if !has {
-		relm = &rod.Element{}
-	}
-	elm = &Element{
+
+	return &Element{
 		element: relm,
 		page:    e.page,
-	}
-
-	return
+	}, true
 }
 
 func (e *Element) MustElement(selector string, jsRegex ...string) *Element {
-	elm, has, err := e.Element(selector, jsRegex...)
+	elm, has := e.Element(selector, jsRegex...)
 	if !has {
-		err = &rod.ElementNotFoundError{}
-	}
-	if err != nil {
-		panic(err)
+		panic(&rod.ElementNotFoundError{})
 	}
 	return elm
 }
 
-func (e *Element) Elements(selector string) (elems Elements, has bool, err error) {
+func (e *Element) Elements(selector string) (elements Elements, has bool) {
 	var es rod.Elements
-	es, err = e.element.Elements(selector)
+	es, err := e.element.Elements(selector)
 	if err != nil {
-		if errors.Is(err, &rod.ElementNotFoundError{}) {
-			return Elements{}, false, err
-		}
-		return
+		return Elements{}, false
 	}
 
 	has = len(es) > 0
-	for _, re := range es {
-		elems = append(elems, &Element{
-			element: re,
+	elements = make(Elements, 0, len(es))
+	for i := range es {
+		elements = append(elements, &Element{
+			element: es[i],
 			page:    e.page,
 		})
 	}
@@ -89,15 +78,11 @@ func (e *Element) Elements(selector string) (elems Elements, has bool, err error
 	return
 }
 
-func (e *Element) MustElements(selector string) (elems Elements) {
-	element, has, err := e.Elements(selector)
-	if err != nil {
-		panic(err)
-	}
-
+func (e *Element) MustElements(selector string) Elements {
+	elements, has := e.Elements(selector)
 	if !has {
 		panic(&rod.ElementNotFoundError{})
 	}
 
-	return element
+	return elements
 }
