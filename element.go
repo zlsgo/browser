@@ -20,7 +20,7 @@ func (e *Element) ROD() *rod.Element {
 func (e *Element) Timeout(d ...time.Duration) *Element {
 	if len(d) > 0 {
 		e.element = e.element.Timeout(d[0])
-	} else {
+	} else if e.page.timeout != 0 {
 		e.element = e.element.Timeout(e.page.timeout)
 	}
 
@@ -60,12 +60,12 @@ func (e *Element) MustElement(selector string, jsRegex ...string) *Element {
 }
 
 func (e *Element) Elements(selector string) (elements Elements, has bool) {
-	var es rod.Elements
-	es, err := e.element.Elements(selector)
+	_, err := e.element.Element(selector)
 	if err != nil {
 		return Elements{}, false
 	}
 
+	es, _ := e.element.Elements(selector)
 	has = len(es) > 0
 	elements = make(Elements, 0, len(es))
 	for i := range es {

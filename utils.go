@@ -5,10 +5,24 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
+	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 )
+
+var cacheDir = "browser"
+
+func init() {
+	launcher.DefaultBrowserDir = filepath.Join(map[string]string{
+		"windows": os.Getenv("APPDATA"),
+		"darwin":  filepath.Join(os.Getenv("HOME"), ".cache"),
+		"linux":   filepath.Join(os.Getenv("HOME"), ".cache"),
+	}[runtime.GOOS], cacheDir, "browser")
+}
 
 func copyBody(b io.ReadCloser) (io.ReadCloser, io.ReadCloser, error) {
 	if b == nil || b == http.NoBody {

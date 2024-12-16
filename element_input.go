@@ -7,7 +7,7 @@ import (
 // FindTextInputElement 查找输入框
 func (e *Element) FindTextInputElement(selector ...string) (element *Element, has bool) {
 	var s string
-	if len(selector) > 0 {
+	if len(selector) > 0 && selector[0] != "" {
 		s = selector[0]
 	} else {
 		s = "input"
@@ -31,7 +31,7 @@ func (e *Element) FindTextInputElement(selector ...string) (element *Element, ha
 			continue
 		}
 
-		if typ.String() != "text" && typ.String() != "search" {
+		if typ.String() != "text" && typ.String() != "search" && typ.String() != "textarea" {
 			continue
 		}
 		return &Element{element: child, page: e.page}, true
