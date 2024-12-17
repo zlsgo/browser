@@ -42,28 +42,36 @@ func (page *Page) NavigateComplete(fn func(), d ...time.Duration) {
 	return
 }
 
-// WaitOpen 等待新页面打开
+// WaitOpen 等待新页面打开，注意手动关闭新页面
 func (page *Page) WaitOpen(fn func() error, d ...time.Duration) (*Page, error) {
-	w := page.Timeout(d...).page.WaitOpen()
+	t := page.GetTimeout(d...)
+	w := page.Timeout(t).page.WaitOpen()
 	err := fn()
 	if err != nil {
 		return nil, err
 	}
-	newPage, err := w()
+	nPage, err := w()
 	if err != nil {
 		return nil, err
 	}
-	return &Page{
-		page:    newPage,
-		Options: page.Options,
-		browser: page.browser,
-	}, nil
+	newPage := *page
+	newPage.page = nPage
+	return &newPage, nil
 }
 
 // WaitLoad 等待页面加载
 func (page *Page) WaitLoad(d ...time.Duration) (err error) {
 	_, err = page.Timeout(d...).page.Eval(jsWaitLoad)
 	return
+}
+
+// WaitDOMStable 等待 DOM 稳定
+func (page *Page) WaitDOMStable(diff float64, d ...time.Duration) (err error) {
+	t := page.GetTimeout(d...)
+	if t == 0 {
+		t = time.Second
+	}
+	return page.page.WaitDOMStable(t, diff)
 }
 
 // NavigateLoad 导航到新 url
@@ -102,19 +110,26 @@ func (page *Page) MustWithTimeout(d time.Duration, fn func(page *Page) error) {
 	}
 }
 
+func (page *Page) GetTimeout(d ...time.Duration) time.Duration {
+	if len(d) > 0 {
+		return d[0]
+	} else if page.timeout != 0 {
+		return page.timeout
+	} else if page.Options.Timeout != 0 {
+		return page.Options.Timeout
+	} else if page.browser.options.Timeout != 0 {
+		return page.browser.options.Timeout
+	}
+
+	return page.timeout
+}
+
 func (page *Page) Timeout(d ...time.Duration) *Page {
 	p := &Page{
 		page:    page.page,
 		Options: page.Options,
 		browser: page.browser,
-	}
-	if len(d) > 0 {
-		p.timeout = d[0]
-	} else if p.timeout != 0 {
-	} else if page.Options.Timeout != 0 {
-		p.timeout = page.Options.Timeout
-	} else if page.browser.options.Timeout != 0 {
-		p.timeout = page.browser.options.Timeout
+		timeout: page.GetTimeout(d...),
 	}
 
 	if p.timeout != 0 {
@@ -159,7 +174,7 @@ func (page *Page) MustElement(selector string, jsRegex ...string) (ele *Element)
 }
 
 func (page *Page) Elements(selector string) (elements Elements, has bool) {
-	_, err := page.page.Element(selector)
+	_, err := page.Timeout().page.Element(selector)
 	if err != nil {
 		if errors.Is(err, &rod.ElementNotFoundError{}) {
 			return Elements{}, false

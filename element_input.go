@@ -2,6 +2,7 @@ package browser
 
 import (
 	"github.com/go-rod/rod/lib/input"
+	"github.com/go-rod/rod/lib/proto"
 )
 
 // FindTextInputElement 查找输入框
@@ -52,4 +53,21 @@ func (e *Element) InputText(text string, clear ...bool) error {
 // InputEnter 输入回车
 func (e *Element) InputEnter(presskeys ...input.Key) error {
 	return e.page.page.KeyActions().Press(presskeys...).Type(input.Enter).Do()
+}
+
+// Click 点击元素
+func (e *Element) Click(button ...proto.InputMouseButton) error {
+	var b proto.InputMouseButton
+	if len(button) > 0 {
+		b = button[0]
+	} else {
+		b = proto.InputMouseButtonLeft
+	}
+
+	return e.element.Click(b, 1)
+}
+
+// Focus 聚焦元素
+func (e *Element) Focus(button ...proto.InputMouseButton) error {
+	return e.element.Focus()
 }

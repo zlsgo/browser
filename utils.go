@@ -12,6 +12,8 @@ import (
 
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/sohaha/zlsgo/zfile"
+	"github.com/sohaha/zlsgo/zutil"
 )
 
 var cacheDir = "browser"
@@ -22,6 +24,18 @@ func init() {
 		"darwin":  filepath.Join(os.Getenv("HOME"), ".cache"),
 		"linux":   filepath.Join(os.Getenv("HOME"), ".cache"),
 	}[runtime.GOOS], cacheDir, "browser")
+}
+
+func isDebian() bool {
+	if !zutil.IsLinux() {
+		return false
+	}
+
+	resp, _ := zfile.ReadFile("/etc/os-release")
+	if len(resp) == 0 {
+		return false
+	}
+	return bytes.Contains(resp, []byte("debian"))
 }
 
 func copyBody(b io.ReadCloser) (io.ReadCloser, io.ReadCloser, error) {
