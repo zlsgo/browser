@@ -159,7 +159,7 @@ func (page *Page) MustElement(selector string, jsRegex ...string) (ele *Element)
 }
 
 func (page *Page) Elements(selector string) (elements Elements, has bool) {
-	_, err := page.page.Element(selector)
+	_, err := page.Timeout().page.Element(selector)
 	if err != nil {
 		if errors.Is(err, &rod.ElementNotFoundError{}) {
 			return Elements{}, false
