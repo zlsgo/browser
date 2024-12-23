@@ -17,6 +17,7 @@ import (
 	"github.com/sohaha/zlsgo/zfile"
 	"github.com/sohaha/zlsgo/zstring"
 	"github.com/sohaha/zlsgo/ztype"
+	"github.com/sohaha/zlsgo/zutil"
 )
 
 type Options struct {
@@ -93,12 +94,22 @@ func (b *Browser) init() (err error) {
 	if b.options.WSEndpoint == "" {
 		b.options.WSEndpoint, err = b.launcher.Logger(ioutil.Discard).Launch()
 		if err != nil {
+			if strings.Contains(err.Error(), "Failed to launch the browser") {
+				errMsg := "Failed to launch the browser"
+				if zutil.IsLinux() {
+					if isDebian() {
+						errMsg += `: sudo apt-get install --no-install-recommends -y libnss3 libxss1 libasound2t64 libxtst6 libgtk-3-0 libgbm1 ca-certificates fonts-liberation fonts-noto-color-emoji fonts-noto-cjk`
+					} else {
+						errMsg += ": https://pptr.dev/troubleshooting#chrome-doesnt-launch-on-linux"
+					}
+				}
+				return errors.New(errMsg)
+			}
 			return err
 		}
 	} else {
 		b.isCustomWSEndpoint = true
 	}
-
 	b.id = ztype.DecimalToAny(int(zstring.UUID()), 64)
 	b.Browser = rod.New().ControlURL(b.options.WSEndpoint)
 
