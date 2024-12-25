@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"time"
@@ -268,6 +269,7 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 }
 
 type PageOptions struct {
+	Ctx            context.Context
 	Timeout        time.Duration
 	Device         devices.Device
 	Keep           bool
@@ -300,6 +302,10 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 		// Device:  devices.LaptopWithMDPIScreen,
 	}, opts...)
 	{
+		if o.Ctx != nil {
+			p.page = p.page.Context(o.Ctx)
+		}
+
 		if o.TriggerFavicon {
 			_ = p.page.TriggerFavicon()
 		}
@@ -415,4 +421,8 @@ func (page *Page) hijack(fn func(router *rod.HijackRouter)) func() error {
 	fn(router)
 	go router.Run()
 	return router.Stop
+}
+
+func (page *Page) Reload() error {
+	return page.page.Reload()
 }
