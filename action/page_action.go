@@ -24,7 +24,7 @@ func WaitDOMStable(diff float64, d ...time.Duration) waitDOMStableType {
 	return o
 }
 
-func (o waitDOMStableType) Do(p *browser.Page) (s any, err error) {
+func (o waitDOMStableType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	if o.timeout > 0 {
 		return nil, p.WaitDOMStable(o.diff, o.timeout)
 	}
@@ -32,5 +32,5 @@ func (o waitDOMStableType) Do(p *browser.Page) (s any, err error) {
 }
 
 func (o waitDOMStableType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	return nil, errors.New("not support")
+	return nil, errors.New("not support next action")
 }

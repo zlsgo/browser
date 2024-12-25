@@ -60,7 +60,7 @@ func RaceElement(successSelectors, failedSelectors []string, maxRetry int, timeo
 	return o
 }
 
-func (o RaceElementType) Do(p *browser.Page) (s any, err error) {
+func (o RaceElementType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	maxRetry := o.maxRetry
 	var run func() (ele *browser.Element, err error)
 	run = func() (ele *browser.Element, err error) {
@@ -113,7 +113,7 @@ func (o RaceElementType) Do(p *browser.Page) (s any, err error) {
 }
 
 func (o RaceElementType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	return nil, errors.New("not support")
+	return nil, errors.New("not support next action")
 }
 
 type ElementsType struct {
@@ -125,7 +125,7 @@ func Elements(selector string) ElementsType {
 	return ElementsType{selector: selector}
 }
 
-func (o ElementsType) Do(p *browser.Page) (s any, err error) {
+func (o ElementsType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	// value := [][]string{}
 
 	elements, has := p.Elements(o.selector)
@@ -197,5 +197,5 @@ func (o ElementsType) Do(p *browser.Page) (s any, err error) {
 }
 
 func (o ElementsType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	return nil, errors.New("not support")
+	return as.Run(p, value)
 }

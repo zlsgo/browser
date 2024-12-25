@@ -19,13 +19,13 @@ type ActionResult struct {
 }
 
 type ActionType interface {
-	Do(p *browser.Page) (any, error)
+	Do(p *browser.Page, parentResults ...ActionResult) (any, error)
 	Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error)
 }
 type Actions []Action
 
 // Run 执行 action
-func (as Actions) Run(p *browser.Page) (data []ActionResult, err error) {
+func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []ActionResult, err error) {
 	data = make([]ActionResult, 0, len(as))
 	keys := zarray.Map(as, func(_ int, v Action) string {
 		return v.Name
@@ -39,7 +39,7 @@ func (as Actions) Run(p *browser.Page) (data []ActionResult, err error) {
 		now := time.Now()
 		res := ActionResult{Name: action.Name}
 		fn := func() {
-			value, err := action.Action.Do(p)
+			value, err := action.Action.Do(p, parentResults...)
 			res.Value = value
 			if err != nil {
 				res.Err = err.Error()
@@ -82,7 +82,7 @@ func TextAction(selector string) textType {
 	return textType(selector)
 }
 
-func (o textType) Do(p *browser.Page) (s any, err error) {
+func (o textType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	err = zerror.TryCatch(func() error {
 		s = p.MustElement(string(o)).MustText()
 		return nil
@@ -91,7 +91,7 @@ func (o textType) Do(p *browser.Page) (s any, err error) {
 }
 
 func (o textType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	return nil, errors.New("not support")
+	return nil, errors.New("not support next action")
 }
 
 type InputEnterType struct {
@@ -107,7 +107,7 @@ func InputEnter(selector, text string) InputEnterType {
 	}
 }
 
-func (o InputEnterType) Do(p *browser.Page) (s any, err error) {
+func (o InputEnterType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	err = zerror.TryCatch(func() error {
 		e, has := p.MustElement("body").Timeout().FindTextInputElement(o.selector)
 		if !has {
@@ -121,7 +121,7 @@ func (o InputEnterType) Do(p *browser.Page) (s any, err error) {
 }
 
 func (o InputEnterType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	return nil, errors.New("not support")
+	return nil, errors.New("not support next action")
 }
 
 type ScreenshoType struct {
@@ -139,7 +139,7 @@ func Screenshot(file string, selector ...string) ScreenshoType {
 	return s
 }
 
-func (o ScreenshoType) Do(p *browser.Page) (s any, err error) {
+func (o ScreenshoType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	if o.selector != "" {
 		p.MustElement(o.selector).ROD().MustScreenshot(o.file)
 		return
@@ -151,7 +151,7 @@ func (o ScreenshoType) Do(p *browser.Page) (s any, err error) {
 }
 
 func (o ScreenshoType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	return nil, errors.New("not support")
+	return nil, errors.New("not support next action")
 }
 
 type SleepType struct {
@@ -163,13 +163,13 @@ func Sleep(timeout time.Duration) SleepType {
 	return SleepType{timeout: timeout}
 }
 
-func (o SleepType) Do(p *browser.Page) (s any, err error) {
+func (o SleepType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	time.Sleep(o.timeout)
 	return
 }
 
 func (o SleepType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	return nil, errors.New("not support")
+	return nil, errors.New("not support next action")
 }
 
 type Action struct {
