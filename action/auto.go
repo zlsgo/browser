@@ -2,18 +2,23 @@ package action
 
 import (
 	"errors"
+	"reflect"
 	"time"
 
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/sohaha/zlsgo/zarray"
 	"github.com/sohaha/zlsgo/zerror"
 	"github.com/sohaha/zlsgo/zfile"
 	"github.com/sohaha/zlsgo/zlog"
+	"github.com/sohaha/zlsgo/zreflect"
+	"github.com/sohaha/zlsgo/ztype"
 	"github.com/zlsgo/browser"
 )
 
 type ActionResult struct {
 	Value any            `json:"value,omitempty"`
 	Name  string         `json:"name,omitempty"`
+	Key   string         `json:"key,omitempty"`
 	Err   string         `json:"error,omitempty"`
 	Child []ActionResult `json:"child,omitempty"`
 }
@@ -35,11 +40,19 @@ func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []Ac
 	}
 
 	for _, action := range as {
-		zlog.Tips(action.Name, ": 开始执行")
 		now := time.Now()
-		res := ActionResult{Name: action.Name}
+		res := ActionResult{Name: action.Name, Key: action.Name}
+		var parent ActionResult
+		if len(parentResults) > 0 {
+			parent = parentResults[0]
+			res.Key = parent.Key + "_" + res.Key
+		} else {
+			parent = res
+		}
+
+		zlog.Tips(res.Key, ": 开始执行")
 		fn := func() {
-			value, err := action.Action.Do(p, parentResults...)
+			value, err := action.Action.Do(p, parent)
 			res.Value = value
 			if err != nil {
 				res.Err = err.Error()
@@ -53,12 +66,29 @@ func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []Ac
 				}
 			}
 
-			if len(action.Next) > 0 {
-				res.Child, err = action.Action.Next(p, action.Next, res)
-				if err != nil {
-					res.Err = err.Error()
+			if len(action.Next) > 0 && res.Err == "" {
+				val := zreflect.ValueOf(res.Value)
+				if val.Kind() == reflect.Slice {
+					for i := 0; i < val.Len(); i++ {
+						nres := ActionResult{
+							Value: val.Index(i).Interface(),
+							Name:  action.Name,
+							Key:   res.Key + "_" + ztype.ToString(i+1),
+						}
+						child, err := action.Action.Next(p, action.Next, nres)
+						if err != nil {
+							res.Err = err.Error()
+							break
+						}
+						res.Child = append(res.Child, child...)
+					}
 				} else {
-					res.Err = ""
+					res.Child, err = action.Action.Next(p, action.Next, res)
+					if err != nil {
+						res.Err = err.Error()
+					} else {
+						res.Err = ""
+					}
 				}
 			}
 
@@ -131,7 +161,7 @@ type ScreenshoType struct {
 
 // Screenshot 截图
 func Screenshot(file string, selector ...string) ScreenshoType {
-	s := ScreenshoType{file: zfile.RealPath(file)}
+	s := ScreenshoType{file: file}
 	if len(selector) > 0 {
 		s.selector = selector[0]
 	}
@@ -140,13 +170,43 @@ func Screenshot(file string, selector ...string) ScreenshoType {
 }
 
 func (o ScreenshoType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
+	file := o.file
+	if file == "" && len(parentResults) > 0 {
+		file = parentResults[0].Key + ".png"
+	}
+	if file == "" {
+		return nil, errors.New("filename is required")
+	}
+	file = zfile.RealPath(file)
+
+	element, has := ExtractElement(parentResults...)
+	if has {
+		if o.selector != "" {
+			element, has = element.Element(o.selector)
+			if !has {
+				return nil, errors.New("element not found")
+			}
+		}
+
+		bin, err := element.ROD().Timeout(time.Second*3).Screenshot(proto.PageCaptureScreenshotFormatPng, 0)
+		if err != nil {
+			return nil, errors.New("screenshot failed")
+		}
+
+		return file, zfile.WriteFile(file, bin)
+	}
+
+	page, has := ExtractPage(parentResults...)
+	if has {
+		p = page
+	}
 	if o.selector != "" {
-		p.MustElement(o.selector).ROD().MustScreenshot(o.file)
+		p.MustElement(o.selector).ROD().MustScreenshot(file)
 		return
 	} else {
-		p.ROD().MustScreenshotFullPage(o.file)
+		p.ROD().MustScreenshotFullPage(file)
 	}
-	s = o.file
+	s = file
 	return
 }
 
@@ -183,6 +243,7 @@ type Auto struct {
 	browser *browser.Browser
 	actions Actions
 	url     string
+	timeout time.Duration
 }
 
 // NewAuto 创建自动执行器
@@ -196,11 +257,18 @@ func NewAuto(b *browser.Browser, url string, actions []Action) *Auto {
 
 // Start 开始执行
 func (a *Auto) Start(opt ...func(o *browser.PageOptions)) (data []ActionResult, err error) {
+	if a.url == "" {
+		return nil, errors.New("url is required")
+	}
+
 	data = make([]ActionResult, 0, len(a.actions))
 	err = a.browser.Open(a.url, func(p *browser.Page) error {
 		data, err = a.actions.Run(p)
 		return err
 	}, func(o *browser.PageOptions) {
+		if a.timeout > 0 {
+			o.Timeout = a.timeout
+		}
 		if len(opt) > 0 {
 			opt[0](o)
 		}
