@@ -118,15 +118,20 @@ func (o RaceElementType) Next(p *browser.Page, as Actions, value ActionResult) (
 
 type ElementsType struct {
 	selector string
+	filter   []string
 }
 
 // Elements 获取元素, 结果为元素列表
-func Elements(selector string) ElementsType {
-	return ElementsType{selector: selector}
+func Elements(selector string, filter ...string) ElementsType {
+	o := ElementsType{selector: selector}
+	if len(filter) > 0 {
+		o.filter = filter
+	}
+	return o
 }
 
 func (o ElementsType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
-	elements, has := p.Elements(o.selector)
+	elements, has := p.Elements(o.selector, o.filter...)
 	if !has {
 		return nil, errors.New("not found")
 	}

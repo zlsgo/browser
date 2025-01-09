@@ -174,7 +174,7 @@ func (page *Page) MustElement(selector string, jsRegex ...string) (ele *Element)
 	return element
 }
 
-func (page *Page) Elements(selector string) (elements Elements, has bool) {
+func (page *Page) Elements(selector string, filter ...string) (elements Elements, has bool) {
 	_, err := page.Timeout().page.Element(selector)
 	if err != nil {
 		if errors.Is(err, &rod.ElementNotFoundError{}) {
@@ -186,7 +186,11 @@ func (page *Page) Elements(selector string) (elements Elements, has bool) {
 	es, _ := page.page.Elements(selector)
 	has = len(es) > 0
 
+	f := filterElements(filter...)
 	for _, e := range es {
+		if ok := f(e); !ok {
+			continue
+		}
 		elements = append(elements, &Element{
 			element: e,
 			page:    page,
@@ -196,8 +200,8 @@ func (page *Page) Elements(selector string) (elements Elements, has bool) {
 	return
 }
 
-func (page *Page) MustElements(selector string) (elements Elements) {
-	element, has := page.Elements(selector)
+func (page *Page) MustElements(selector string, filter ...string) (elements Elements) {
+	element, has := page.Elements(selector, filter...)
 	if !has {
 		panic(&rod.ElementNotFoundError{})
 	}

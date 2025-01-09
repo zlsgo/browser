@@ -18,6 +18,7 @@ func parseAction(actionArray []*zjson.Res) (actions Actions) {
 		timeout := v.Get("timeout").Int()
 		selector := v.Get("selector").String()
 		next := v.Get("next").Array()
+		// vaidator := v.Get("vaidator").Value()
 		nextActions := parseAction(next)
 		action := Action{
 			Name:     name,

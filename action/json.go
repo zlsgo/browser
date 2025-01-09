@@ -1,6 +1,7 @@
 package action
 
 import (
+	"errors"
 	"time"
 
 	"github.com/sohaha/zlsgo/zjson"
@@ -12,6 +13,14 @@ func NewAutoFromJson(b *browser.Browser, jsonStr []byte) (*Auto, error) {
 	url := j.Get("url").String()
 	actions := j.Get("actions").Array()
 	timeout := j.Get("timeout").Int()
+
+	if url == "" {
+		return nil, errors.New("url is required")
+	}
+
+	if len(actions) == 0 {
+		return nil, errors.New("actions is required")
+	}
 
 	return &Auto{
 		browser: b,
