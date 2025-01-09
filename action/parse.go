@@ -18,7 +18,7 @@ func parseAction(actionArray []*zjson.Res) (actions Actions) {
 		timeout := v.Get("timeout").Int()
 		selector := v.Get("selector").String()
 		next := v.Get("next").Array()
-		// vaidator := v.Get("vaidator").Value()
+		vaidator := v.Get("vaidator")
 		nextActions := parseAction(next)
 		action := Action{
 			Name:     name,
@@ -31,7 +31,7 @@ func parseAction(actionArray []*zjson.Res) (actions Actions) {
 		case "InputEnter":
 			action.Action = InputEnter(selector, value)
 		case "Elements":
-			action.Action = Elements(selector)
+			action.Action = Elements(selector, vaidator.Slice().String()...)
 		case "Screenshot":
 			action.Action = Screenshot("")
 		case "ClickNewPage":
