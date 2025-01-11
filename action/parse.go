@@ -40,8 +40,21 @@ func parseAction(actionArray []*zjson.Res) (actions Actions) {
 			action.Action = ActivatePage()
 		case "ClosePage":
 			action.Action = ClosePage()
+		default:
+			if actionType, ok := actionTypeMap[actionType]; ok {
+				action = actionType(v)
+			}
+		}
+		if action.Action == nil {
+			continue
 		}
 		actions = append(actions, action)
 	}
 	return
+}
+
+var actionTypeMap = map[string]func(v *zjson.Res) Action{}
+
+func CustomActionType(name string, action func(v *zjson.Res) Action) {
+	actionTypeMap[name] = action
 }
