@@ -18,6 +18,7 @@ type Page struct {
 	Options PageOptions
 	browser *Browser
 	timeout time.Duration
+	ctx     context.Context
 }
 
 // ROD 获取 rod 实例
@@ -33,6 +34,16 @@ func (page *Page) Browser() *Browser {
 // Close 关闭页面
 func (page *Page) Close() error {
 	return page.page.Close()
+}
+
+// Value 获取上下文
+func (page *Page) Value(key any) any {
+	return page.ctx.Value(key)
+}
+
+// WithValue 设置上下文
+func (page *Page) WithValue(key any, value any) {
+	page.ctx = context.WithValue(page.ctx, key, value)
 }
 
 // NavigateComplete 等待页面加载完成
@@ -127,6 +138,7 @@ func (page *Page) GetTimeout(d ...time.Duration) time.Duration {
 
 func (page *Page) Timeout(d ...time.Duration) *Page {
 	p := &Page{
+		ctx:     page.ctx,
 		page:    page.page,
 		Options: page.Options,
 		browser: page.browser,
@@ -228,7 +240,7 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 		race = race.ElementFunc(func(p *rod.Page) (*rod.Element, error) {
 			var ele *Element
 			err := zerror.TryCatch(func() error {
-				ele = v.Element(&Page{page: p})
+				ele = v.Element(&Page{page: p, ctx: page.ctx, Options: page.Options, browser: page.browser})
 				return nil
 			})
 			if err != nil {
@@ -299,6 +311,7 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 	p := &Page{
 		page:    page,
 		browser: b,
+		ctx:     page.GetContext(),
 	}
 
 	o := zutil.Optional(PageOptions{
