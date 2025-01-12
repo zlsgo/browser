@@ -9,11 +9,23 @@ import (
 	"github.com/sohaha/zlsgo/zarray"
 	"github.com/sohaha/zlsgo/zerror"
 	"github.com/sohaha/zlsgo/zfile"
+	"github.com/sohaha/zlsgo/zjson"
 	"github.com/sohaha/zlsgo/zlog"
 	"github.com/sohaha/zlsgo/zreflect"
+	"github.com/sohaha/zlsgo/zstring"
 	"github.com/sohaha/zlsgo/ztype"
 	"github.com/zlsgo/browser"
 )
+
+type AutoResult []ActionResult
+
+func (a *AutoResult) String() string {
+	j, err := zjson.Marshal(a)
+	if err != nil {
+		return "[]"
+	}
+	return zstring.Bytes2String(j)
+}
 
 type ActionResult struct {
 	Value any            `json:"value,omitempty"`
@@ -256,7 +268,7 @@ func NewAuto(b *browser.Browser, url string, actions []Action) *Auto {
 }
 
 // Start 开始执行
-func (a *Auto) Start(opt ...func(o *browser.PageOptions)) (data []ActionResult, err error) {
+func (a *Auto) Start(opt ...func(o *browser.PageOptions)) (data AutoResult, err error) {
 	if a.url == "" {
 		return nil, errors.New("url is required")
 	}
