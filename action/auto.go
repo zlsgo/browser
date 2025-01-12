@@ -28,9 +28,9 @@ func (a *AutoResult) String() string {
 }
 
 type ActionResult struct {
-	Value any            `json:"value,omitempty"`
-	Name  string         `json:"name,omitempty"`
-	Key   string         `json:"key,omitempty"`
+	Value any    `json:"value,omitempty"`
+	Name  string `json:"name,omitempty"`
+	key   string
 	Err   string         `json:"error,omitempty"`
 	Child []ActionResult `json:"child,omitempty"`
 }
@@ -53,16 +53,16 @@ func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []Ac
 
 	for _, action := range as {
 		now := time.Now()
-		res := ActionResult{Name: action.Name, Key: action.Name}
+		res := ActionResult{Name: action.Name, key: action.Name}
 		var parent ActionResult
 		if len(parentResults) > 0 {
 			parent = parentResults[0]
-			res.Key = parent.Key + "_" + res.Key
+			res.key = parent.key + "_" + res.key
 		} else {
 			parent = res
 		}
 
-		zlog.Tips(res.Key, ": 开始执行")
+		zlog.Tips(res.key, ": 开始执行")
 		fn := func() {
 			value, err := action.Action.Do(p, parent)
 			res.Value = value
@@ -85,7 +85,7 @@ func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []Ac
 						nres := ActionResult{
 							Value: val.Index(i).Interface(),
 							Name:  action.Name,
-							Key:   res.Key + "_" + ztype.ToString(i+1),
+							key:   res.key + "_" + ztype.ToString(i+1),
 						}
 						child, err := action.Action.Next(p, action.Next, nres)
 						if err != nil {
@@ -184,7 +184,7 @@ func Screenshot(file string, selector ...string) ScreenshoType {
 func (o ScreenshoType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	file := o.file
 	if file == "" && len(parentResults) > 0 {
-		file = parentResults[0].Key + ".png"
+		file = parentResults[0].key + ".png"
 	}
 	if file == "" {
 		return nil, errors.New("filename is required")
@@ -246,15 +246,15 @@ func (o SleepType) Next(p *browser.Page, as Actions, value ActionResult) ([]Acti
 
 type Action struct {
 	Action   ActionType
+	Vaidator func(p *browser.Page, value ActionResult) error
 	Name     string
 	Next     Actions
-	Vaidator func(p *browser.Page, value ActionResult) error
 }
 
 type Auto struct {
 	browser *browser.Browser
-	actions Actions
 	url     string
+	actions Actions
 	timeout time.Duration
 }
 

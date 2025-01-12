@@ -21,30 +21,30 @@ import (
 )
 
 type Options struct {
-	Bin             string            // 本地浏览器路径
-	Debug           bool              // 是否开启调试模式
-	SlowMotion      time.Duration     // 慢动作
-	Devtools        bool              // 是否开启调试工具
-	UserDataDir     string            // 用户数据保存目录
-	UserMode        bool              // 是否使用用户模式，不支持无头模式
-	Incognito       bool              // 是否使用隐身模式
-	IgnoreCertError bool              // 忽略证书错误提示
-	Timeout         time.Duration     // 超时时间
-	DefaultDevice   devices.Device    // 默认设备
-	Leakless        bool              // 使用 Leakless 防止内存泄漏
-	autoKill        bool              // 是否自动关闭浏览器
-	Envs            []string          // 环境变量
-	Flags           map[string]string // 其他配置
-	Headless        bool              // 使用无头浏览器
-	ProxyUrl        string            // 设置代理
-	Hijack          HijackProcess     // 劫持请求
-	AcceptLanguage  string            // 设置语言
-	UserAgent       string            // 设置 UserAgent
-	WSEndpoint      string            // 浏览器 WSEndpoint
-	Extensions      []string          // 浏览器扩展路径，支持本地文件夹路径、远程URL或商店扩展ID，无痕模式下不生效
-	Stealth         bool              // 注入 stealth 脚本
-	Scripts         []string          // 注入 JS 脚本
 	browser         *Browser
+	Hijack          HijackProcess
+	Flags           map[string]string
+	Bin             string
+	WSEndpoint      string
+	UserAgent       string
+	UserDataDir     string
+	AcceptLanguage  string
+	ProxyUrl        string
+	DefaultDevice   devices.Device
+	Envs            []string
+	Scripts         []string
+	Extensions      []string
+	SlowMotion      time.Duration
+	Timeout         time.Duration
+	Headless        bool
+	Incognito       bool
+	UserMode        bool
+	Devtools        bool
+	IgnoreCertError bool
+	autoKill        bool
+	Stealth         bool
+	Leakless        bool
+	Debug           bool
 }
 
 func (b *Browser) init() (err error) {

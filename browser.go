@@ -14,18 +14,18 @@ import (
 )
 
 type Browser struct {
-	id                 string
-	Browser            *rod.Browser
-	launcher           *launcher.Launcher
-	err                error
 	options            Options
-	isCustomWSEndpoint bool
+	err                error
+	log                *zlog.Logger
+	launcher           *launcher.Launcher
+	Browser            *rod.Browser
+	client             *zhttp.Engine
+	userAgent          *proto.NetworkSetUserAgentOverride
+	id                 string
 	after              []func()
 	before             []func()
-	client             *zhttp.Engine
-	log                *zlog.Logger
 	cookies            []*http.Cookie
-	userAgent          *proto.NetworkSetUserAgentOverride
+	isCustomWSEndpoint bool
 	canUserDir         bool
 }
 

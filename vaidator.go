@@ -9,9 +9,9 @@ import (
 
 type filterRules struct {
 	selector string
-	isEq     bool
 	value    string
 	attr     string
+	isEq     bool
 }
 
 func filterElementsRules(f ...string) []filterRules {

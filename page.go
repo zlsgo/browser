@@ -14,11 +14,11 @@ import (
 )
 
 type Page struct {
-	page    *rod.Page
 	Options PageOptions
+	ctx     context.Context
+	page    *rod.Page
 	browser *Browser
 	timeout time.Duration
-	ctx     context.Context
 }
 
 // ROD 获取 rod 实例
@@ -286,12 +286,12 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 
 type PageOptions struct {
 	Ctx            context.Context
-	Timeout        time.Duration
-	Device         devices.Device
-	Keep           bool
-	TriggerFavicon bool
 	Network        func(p *proto.NetworkEmulateNetworkConditions)
 	Hijack         map[string]HijackProcess
+	Device         devices.Device
+	Timeout        time.Duration
+	Keep           bool
+	TriggerFavicon bool
 }
 
 func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *PageOptions)) error {

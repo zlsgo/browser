@@ -38,12 +38,12 @@ type HijackProcess func(router *Hijack) (stop bool)
 
 type HijackData struct {
 	URL            *url.URL
-	Request        []byte
-	Response       []byte
-	Method         string
-	StatusCode     int
 	Header         http.Header
 	ResponseHeader http.Header
+	Method         string
+	Request        []byte
+	Response       []byte
+	StatusCode     int
 }
 
 func (h *Hijack) HijackRequests(fn func(d *HijackData, err error) bool) bool {
