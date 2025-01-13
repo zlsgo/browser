@@ -56,7 +56,7 @@ func (page *Page) NavigateComplete(fn func(), d ...time.Duration) {
 
 // WaitOpen 等待新页面打开，注意手动关闭新页面
 func (page *Page) WaitOpen(fn func() error, d ...time.Duration) (*Page, error) {
-	w := page.waitOpen()
+	w := page.waitOpen(d...)
 
 	err := fn()
 	if err != nil {
