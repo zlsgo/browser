@@ -10,7 +10,6 @@ import (
 	"github.com/sohaha/zlsgo/zerror"
 	"github.com/sohaha/zlsgo/zfile"
 	"github.com/sohaha/zlsgo/zjson"
-	"github.com/sohaha/zlsgo/zlog"
 	"github.com/sohaha/zlsgo/zreflect"
 	"github.com/sohaha/zlsgo/zstring"
 	"github.com/sohaha/zlsgo/ztype"
@@ -52,7 +51,6 @@ func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []Ac
 	}
 
 	for _, action := range as {
-		now := time.Now()
 		res := ActionResult{Name: action.Name, key: action.Name}
 		var parent ActionResult
 		if len(parentResults) > 0 {
@@ -62,7 +60,6 @@ func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []Ac
 			parent = res
 		}
 
-		zlog.Tips(res.key, ": 开始执行")
 		fn := func() {
 			value, err := action.Action.Do(p, parent)
 			res.Value = value
@@ -103,11 +100,9 @@ func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []Ac
 					}
 				}
 			}
-
 			data = append(data, res)
 		}
 		fn()
-		zlog.Tips(action.Name, "执行结束: ", time.Since(now))
 		if res.Err != "" {
 			break
 		}

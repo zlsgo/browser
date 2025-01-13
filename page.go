@@ -56,19 +56,36 @@ func (page *Page) NavigateComplete(fn func(), d ...time.Duration) {
 
 // WaitOpen 等待新页面打开，注意手动关闭新页面
 func (page *Page) WaitOpen(fn func() error, d ...time.Duration) (*Page, error) {
-	t := page.GetTimeout(d...)
-	w := page.Timeout(t).page.WaitOpen()
+	w := page.waitOpen()
+
 	err := fn()
 	if err != nil {
 		return nil, err
 	}
+
 	nPage, err := w()
 	if err != nil {
 		return nil, err
 	}
+
 	newPage := *page
 	newPage.page = nPage
 	return &newPage, nil
+}
+
+func (p *Page) waitOpen(d ...time.Duration) func() (*rod.Page, error) {
+	var targetID proto.TargetTargetID
+
+	b := p.browser.Browser
+	wait := b.Context(p.ctx).Timeout(p.GetTimeout(d...)).EachEvent(func(e *proto.TargetTargetCreated) bool {
+		targetID = e.TargetInfo.TargetID
+		return e.TargetInfo.OpenerID == p.page.TargetID
+	})
+
+	return func() (*rod.Page, error) {
+		wait()
+		return b.PageFromTarget(targetID)
+	}
 }
 
 // WaitLoad 等待页面加载
