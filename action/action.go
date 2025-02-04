@@ -69,7 +69,9 @@ func (o RaceElementType) Do(p *browser.Page, parentResults ...ActionResult) (s a
 		if o.timeout > 0 {
 			page = p.Timeout(o.timeout + (time.Duration(maxRetry-o.maxRetry) * time.Second))
 		}
-		for _, v := range append(o.SuccessSelectors, o.FailedSelectors...) {
+		all := append(o.SuccessSelectors, o.FailedSelectors...)
+		for i := range all {
+			v := all[i]
 			if v == "" {
 				continue
 			}
@@ -113,7 +115,7 @@ func (o RaceElementType) Do(p *browser.Page, parentResults ...ActionResult) (s a
 }
 
 func (o RaceElementType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	return nil, errors.New("not support next action")
+	return as.Run(p, value)
 }
 
 type ElementsType struct {
