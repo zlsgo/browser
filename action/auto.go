@@ -10,11 +10,15 @@ import (
 	"github.com/sohaha/zlsgo/zerror"
 	"github.com/sohaha/zlsgo/zfile"
 	"github.com/sohaha/zlsgo/zjson"
+	"github.com/sohaha/zlsgo/zlog"
 	"github.com/sohaha/zlsgo/zreflect"
 	"github.com/sohaha/zlsgo/zstring"
 	"github.com/sohaha/zlsgo/ztype"
+	"github.com/sohaha/zlsgo/zutil"
 	"github.com/zlsgo/browser"
 )
+
+var Debug = zutil.NewBool(false)
 
 type AutoResult []ActionResult
 
@@ -52,12 +56,17 @@ func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []Ac
 
 	for _, action := range as {
 		res := ActionResult{Name: action.Name, key: action.Name}
+
 		var parent ActionResult
 		if len(parentResults) > 0 {
 			parent = parentResults[0]
 			res.key = parent.key + "_" + res.key
 		} else {
 			parent = res
+		}
+
+		if Debug.Load() {
+			zlog.Tips("执行", res.key)
 		}
 
 		fn := func() {
@@ -251,6 +260,7 @@ type Auto struct {
 	url     string
 	actions Actions
 	timeout time.Duration
+	debug   bool
 }
 
 // NewAuto 创建自动执行器

@@ -3,9 +3,13 @@ package action
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/js"
 	"github.com/sohaha/zlsgo/zarray"
+	"github.com/sohaha/zlsgo/zlog"
 	"github.com/zlsgo/browser"
 )
 
@@ -29,15 +33,21 @@ type ClickType struct {
 	selector string
 }
 
-// ClickAction 点击元素
-func ClickAction(selector string) ClickType {
+var _ ActionType = ClickType{}
+
+// Click 点击元素
+func Click(selector string) ClickType {
 	return ClickType{
 		selector: selector,
 	}
 }
 
-func (o ClickType) Do(p *browser.Page, as Actions, panicErr bool) (s any, err error) {
+func (o ClickType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	return nil, p.MustElement(o.selector).Click()
+}
+
+func (o ClickType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
+	return as.Run(p, value)
 }
 
 type RaceElementType struct {
@@ -80,8 +90,8 @@ func (o RaceElementType) Do(p *browser.Page, parentResults ...ActionResult) (s a
 			}
 
 			fns[v] = browser.RaceElementFunc{
-				Element: func(p *browser.Page) *browser.Element {
-					return page.MustElement(v)
+				Element: func(p *browser.Page) (bool, *browser.Element) {
+					return page.HasElement(v)
 				},
 				Handle: func(element *browser.Element) (retry bool, err error) {
 					if zarray.Contains(o.SuccessSelectors, v) {
@@ -118,6 +128,43 @@ func (o RaceElementType) Next(p *browser.Page, as Actions, value ActionResult) (
 	return as.Run(p, value)
 }
 
+type IfElementType struct {
+	selector string
+}
+
+func IfElement(selector string) IfElementType {
+	return IfElementType{
+		selector: selector,
+	}
+}
+
+func (o IfElementType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
+	element, has := ExtractElement(parentResults...)
+	if !has {
+		return nil, nil
+	}
+	ele, err := element.Parent()
+	if err != nil {
+		return nil, nil
+	}
+
+	has, ele = ele.HasElement(o.selector)
+	if !has {
+		return nil, nil
+	}
+
+	return ele, nil
+}
+
+func (o IfElementType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
+	_, has := ExtractElement(value)
+	if !has {
+		return nil, nil
+	}
+
+	return as.Run(p, value)
+}
+
 type ElementsType struct {
 	selector string
 	filter   []string
@@ -142,5 +189,58 @@ func (o ElementsType) Do(p *browser.Page, parentResults ...ActionResult) (s any,
 }
 
 func (o ElementsType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
+	return as.Run(p, value)
+}
+
+type ToFrameType struct {
+	selector string
+}
+
+func ToFrame(selector ...string) ToFrameType {
+	o := ToFrameType{}
+	if len(selector) > 0 {
+		o.selector = selector[0]
+	}
+	return o
+}
+
+func (o ToFrameType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
+	element, has := ExtractElement(parentResults...)
+	if !has {
+		return nil, errors.New("not found")
+	}
+
+	if o.selector != "" {
+		has, element = element.HasElement(o.selector)
+		if !has {
+			return nil, errors.New("not found")
+		}
+	}
+
+	page, err := element.ROD().Frame()
+	if err != nil {
+		return nil, err
+	}
+
+	jsElement := &js.Function{
+		Name:       "element",
+		Definition: `function(e){return document.body}`,
+	}
+	e, err := page.ElementByJS(&rod.EvalOptions{
+		ByValue: true,
+		JSArgs:  []interface{}{jsElement},
+		JS:      fmt.Sprintf(`function (f /* %s */, ...args) { return f.apply(this, args) }`, jsElement.Name),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+	return browser.ToElement(e, p), nil
+}
+
+func (o ToFrameType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
+	element, has := ExtractElement(value)
+	zlog.Debug(element.ROD().MustText(), has)
+	zlog.Debug(as.Run(p, value))
 	return as.Run(p, value)
 }

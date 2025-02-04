@@ -169,6 +169,20 @@ func (page *Page) Timeout(d ...time.Duration) *Page {
 	return p
 }
 
+// HasElement 检查元素是否存在，不会等待元素出现
+func (page *Page) HasElement(selector string) (bool, *Element) {
+	has, ele, _ := page.page.Has(selector)
+	if !has {
+		return false, nil
+	}
+
+	return true, &Element{
+		element: ele,
+		page:    page,
+	}
+}
+
+// Element 获取元素，会等待元素出现
 func (page *Page) Element(selector string, jsRegex ...string) (ele *Element, has bool) {
 	var (
 		e   *rod.Element
@@ -239,7 +253,7 @@ func (page *Page) MustElements(selector string, filter ...string) (elements Elem
 }
 
 type RaceElementFunc struct {
-	Element func(p *Page) *Element
+	Element func(p *Page) (bool, *Element)
 	Handle  func(element *Element) (retry bool, err error)
 }
 
@@ -255,11 +269,17 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 		k := key
 		v := elements[k]
 		race = race.ElementFunc(func(p *rod.Page) (*rod.Element, error) {
-			var ele *Element
-			err := zerror.TryCatch(func() error {
-				ele = v.Element(&Page{page: p, ctx: page.ctx, Options: page.Options, browser: page.browser})
-				return nil
+			var (
+				ele *Element
+				has bool
+			)
+			err := zerror.TryCatch(func() (err error) {
+				has, ele = v.Element(&Page{page: p, ctx: page.ctx, Options: page.Options, browser: page.browser})
+				return err
 			})
+			if !has {
+				return nil, &rod.ElementNotFoundError{}
+			}
 			if err != nil {
 				elementNotFoundError := &rod.ElementNotFoundError{}
 				if err.Error() == elementNotFoundError.Error() {

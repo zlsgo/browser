@@ -13,6 +13,13 @@ type Element struct {
 
 type Elements []*Element
 
+func ToElement(e *rod.Element, p *Page) *Element {
+	return &Element{
+		element: e,
+		page:    p,
+	}
+}
+
 func (e *Element) ROD() *rod.Element {
 	return e.element
 }
@@ -30,6 +37,33 @@ func (e *Element) Timeout(d ...time.Duration) *Element {
 	}
 }
 
+// HasElement 检查元素是否存在，不会等待元素出现
+func (e *Element) Parent() (element *Element, err error) {
+	ele, err := e.element.Parent()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Element{
+		element: ele,
+		page:    e.page,
+	}, nil
+}
+
+// HasElement 检查元素是否存在，不会等待元素出现
+func (e *Element) HasElement(selector string) (bool, *Element) {
+	has, ele, _ := e.element.Has(selector)
+	if !has {
+		return false, nil
+	}
+
+	return true, &Element{
+		element: ele,
+		page:    e.page,
+	}
+}
+
+// Element 获取元素，会等待元素出现
 func (e *Element) Element(selector string, jsRegex ...string) (element *Element, has bool) {
 	var (
 		relm *rod.Element
