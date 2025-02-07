@@ -9,7 +9,6 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/js"
 	"github.com/sohaha/zlsgo/zarray"
-	"github.com/sohaha/zlsgo/zlog"
 	"github.com/zlsgo/browser"
 )
 
@@ -43,6 +42,17 @@ func Click(selector string) ClickType {
 }
 
 func (o ClickType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
+	element, has := ExtractElement(parentResults...)
+	if has {
+		if o.selector != "" {
+			element, has = element.Element(o.selector)
+		}
+		if has {
+			return nil, element.Click()
+		}
+		return nil, errors.New("not found element")
+	}
+
 	return nil, p.MustElement(o.selector).Click()
 }
 
@@ -231,7 +241,6 @@ func (o ToFrameType) Do(p *browser.Page, parentResults ...ActionResult) (s any, 
 		JSArgs:  []interface{}{jsElement},
 		JS:      fmt.Sprintf(`function (f /* %s */, ...args) { return f.apply(this, args) }`, jsElement.Name),
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -239,8 +248,5 @@ func (o ToFrameType) Do(p *browser.Page, parentResults ...ActionResult) (s any, 
 }
 
 func (o ToFrameType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
-	element, has := ExtractElement(value)
-	zlog.Debug(element.ROD().MustText(), has)
-	zlog.Debug(as.Run(p, value))
 	return as.Run(p, value)
 }
