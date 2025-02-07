@@ -222,11 +222,37 @@ func (o ScreenshoType) Do(p *browser.Page, parentResults ...ActionResult) (s any
 	} else {
 		p.ROD().MustScreenshotFullPage(file)
 	}
-	s = file
+	s = zfile.SafePath(file)
 	return
 }
 
 func (o ScreenshoType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
+	return nil, errors.New("not support next action")
+}
+
+type ScreenshoFullType struct {
+	file string
+}
+
+var _ ActionType = ScreenshoFullType{}
+
+// ScreenshotFullPage 截图整个页面
+func ScreenshotFullPage(file string) ScreenshoFullType {
+	return ScreenshoFullType{file: file}
+}
+
+func (o ScreenshoFullType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
+	_ = p.WaitDOMStable(0, time.Second*2)
+	file := zfile.RealPath(o.file)
+	bin, err := p.ROD().Screenshot(true, nil)
+	if err != nil {
+		return nil, errors.New("screenshot failed")
+	}
+
+	return zfile.SafePath(file), zfile.WriteFile(file, bin)
+}
+
+func (o ScreenshoFullType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
 	return nil, errors.New("not support next action")
 }
 
