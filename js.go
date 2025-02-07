@@ -6,6 +6,8 @@ import (
 	"github.com/ysmood/gson"
 )
 
+// npx extract-stealth-evasions
+
 //go:embed stealth.min.js
 var stealth string
 

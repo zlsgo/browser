@@ -8,13 +8,16 @@ import (
 	"github.com/sohaha/zlsgo/ztype"
 )
 
-type device struct {
-}
+type device struct{}
 
 var Device = device{}
 
 func (d device) NoDefaultDevice() devices.Device {
 	return devices.Device{}
+}
+
+func (d device) Clear() devices.Device {
+	return devices.Clear
 }
 
 func (d device) IPhoneX() devices.Device {

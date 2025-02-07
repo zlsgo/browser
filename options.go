@@ -71,7 +71,6 @@ func (b *Browser) init() (err error) {
 	} {
 		v(b)
 	}
-
 	b.launcher.Headless(b.options.Headless)
 
 	if b.options.ProxyUrl != "" {

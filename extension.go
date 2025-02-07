@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -16,8 +17,9 @@ import (
 )
 
 func (o *Options) handerExtension() (extensions []string) {
-	for _, extensionPath := range o.Extensions {
-		path, ok, err := o.isExtensionURL(extensionPath)
+	for i := range o.Extensions {
+		extensionPath := o.Extensions[i]
+		path, ok, _, err := o.isExtensionURL(extensionPath)
 		if err != nil {
 			o.browser.log.Error(err)
 			continue
@@ -25,6 +27,9 @@ func (o *Options) handerExtension() (extensions []string) {
 
 		if ok {
 			extensionPath, err = o.downloadExtension(path)
+			// if isID && err != nil {
+			// 	extensionPath, err = o.downloadExtension("https://statics.ilovechrome.com/crx/download/?id=" + o.Extensions[i])
+			// }
 			if err != nil {
 				o.browser.log.Error(err)
 				continue
@@ -47,15 +52,19 @@ func (o *Options) handerExtension() (extensions []string) {
 	return
 }
 
-func (o *Options) downloadExtension(downloadUrl string) (string, error) {
-	file := zfile.TmpPath() + "/zls-extension/" + zstring.Md5(downloadUrl) + ".crx"
-	if zfile.FileExist(file) {
+func (o *Options) downloadExtension(downloadUrl string) (file string, err error) {
+	file = zfile.TmpPath() + "/zls-extension/" + zstring.Md5(downloadUrl) + ".crx"
+	if zfile.FileSizeUint(file) > 0 {
 		return file, nil
 	}
 
 	resp, err := zhttp.Get(downloadUrl)
 	if err != nil {
 		return "", err
+	}
+
+	if resp.StatusCode() != 200 {
+		return "", errors.New("status code not 200")
 	}
 
 	err = resp.ToFile(file)
@@ -66,8 +75,8 @@ func (o *Options) downloadExtension(downloadUrl string) (string, error) {
 	return file, nil
 }
 
-func (o *Options) isExtensionURL(s string) (string, bool, error) {
-	if !strings.Contains(s, "/") {
+func (o *Options) isExtensionURL(s string) (string, bool, bool, error) {
+	if !strings.Contains(s, "/") && !strings.Contains(s, ".") {
 		var product string
 		err := zerror.TryCatch(func() error {
 			browser := rod.New().ControlURL(launcher.New().Bin(getBin(o.Bin)).MustLaunch()).MustConnect()
@@ -79,11 +88,10 @@ func (o *Options) isExtensionURL(s string) (string, bool, error) {
 			return err
 		})
 		if err != nil {
-			return "", false, err
+			return "", false, false, err
 		}
-
-		return "https://clients2.google.com/service/update2/crx?response=redirect&prodversion=" + product + "&acceptformat=crx2%2Ccrx3&x=id%3D" + s + "%26uc", true, nil
+		return "https://clients2.google.com/service/update2/crx?response=redirect&prodversion=" + product + "&acceptformat=crx2%2Ccrx3&x=id%3D" + s + "%26uc", true, true, nil
 	}
 
-	return s, zvalid.Text(s).IsURL().Ok(), nil
+	return s, zvalid.Text(s).IsURL().Ok(), false, nil
 }
