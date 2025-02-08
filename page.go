@@ -105,12 +105,12 @@ func (page *Page) WaitLoad(d ...time.Duration) (err error) {
 }
 
 // WaitDOMStable 等待 DOM 稳定
-func (page *Page) WaitDOMStable(diff float64, d ...time.Duration) (err error) {
-	t := page.GetTimeout(d...)
-	if t == 0 {
-		t = time.Second
+func (page *Page) WaitDOMStable(diff ...float64) (err error) {
+	t := page.GetTimeout()
+	if len(diff) > 0 {
+		return page.page.Timeout(t).WaitDOMStable(time.Second, diff[0])
 	}
-	return page.page.Timeout(t).WaitDOMStable(t, diff)
+	return page.page.Timeout(t).WaitDOMStable(time.Second, 0.01)
 }
 
 // NavigateLoad 导航到新 url

@@ -242,7 +242,7 @@ func ScreenshotFullPage(file string) ScreenshoFullType {
 }
 
 func (o ScreenshoFullType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
-	_ = p.WaitDOMStable(0, time.Second*2)
+	_ = p.WaitDOMStable(0)
 	file := zfile.RealPath(o.file)
 	bin, err := p.ROD().Screenshot(true, nil)
 	if err != nil {
