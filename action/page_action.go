@@ -27,9 +27,12 @@ func WaitDOMStable(diff float64, d ...time.Duration) waitDOMStableType {
 
 func (o waitDOMStableType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	if o.timeout > 0 {
-		return nil, p.WaitDOMStable(o.diff, o.timeout)
+		p.WaitDOMStable(o.diff, o.timeout)
+	} else {
+		p.WaitDOMStable(o.diff)
 	}
-	return nil, p.WaitDOMStable(o.diff)
+
+	return nil, nil
 }
 
 func (o waitDOMStableType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {

@@ -110,7 +110,7 @@ func (page *Page) WaitDOMStable(diff float64, d ...time.Duration) (err error) {
 	if t == 0 {
 		t = time.Second
 	}
-	return page.page.WaitDOMStable(t, diff)
+	return page.page.Timeout(t).WaitDOMStable(t, diff)
 }
 
 // NavigateLoad 导航到新 url
