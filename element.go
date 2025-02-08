@@ -1,9 +1,11 @@
 package browser
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/js"
 )
 
 type Element struct {
@@ -13,11 +15,24 @@ type Element struct {
 
 type Elements []*Element
 
-func ToElement(e *rod.Element, p *Page) *Element {
+func (p *Page) Document() (*Element, error) {
+	jsElement := &js.Function{
+		Name:       "element",
+		Definition: `function(e){return document.body}`,
+	}
+	e, err := p.ROD().ElementByJS(&rod.EvalOptions{
+		ByValue: true,
+		JSArgs:  []interface{}{jsElement},
+		JS:      fmt.Sprintf(`function (f /* %s */, ...args) { return f.apply(this, args) }`, jsElement.Name),
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &Element{
 		element: e,
 		page:    p,
-	}
+	}, nil
 }
 
 func (e *Element) ROD() *rod.Element {
@@ -48,6 +63,16 @@ func (e *Element) Parent() (element *Element, err error) {
 		element: ele,
 		page:    e.page,
 	}, nil
+}
+
+// Frame 获取元素的 iframe 页面
+func (e *Element) Frame() (*Page, error) {
+	frame, err := e.element.Frame()
+	if err != nil {
+		return nil, err
+	}
+
+	return e.page.FromROD(frame), nil
 }
 
 // HasElement 检查元素是否存在，不会等待元素出现

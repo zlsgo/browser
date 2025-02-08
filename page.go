@@ -21,11 +21,21 @@ type Page struct {
 	timeout time.Duration
 }
 
+func (page *Page) FromROD(p *rod.Page) *Page {
+	return &Page{
+		page:    p,
+		browser: page.browser,
+		ctx:     page.ctx,
+		Options: page.Options,
+	}
+}
+
 // ROD 获取 rod 实例
 func (page *Page) ROD() *rod.Page {
 	return page.page
 }
 
+// Browser 获取浏览器实例
 // Browser 获取浏览器实例
 func (page *Page) Browser() *Browser {
 	return page.browser

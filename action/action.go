@@ -3,11 +3,8 @@ package action
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/js"
 	"github.com/sohaha/zlsgo/zarray"
 	"github.com/zlsgo/browser"
 )
@@ -232,21 +229,29 @@ func (o ToFrameType) Do(p *browser.Page, parentResults ...ActionResult) (s any, 
 		return nil, err
 	}
 
-	jsElement := &js.Function{
-		Name:       "element",
-		Definition: `function(e){return document.body}`,
-	}
-	e, err := page.ElementByJS(&rod.EvalOptions{
-		ByValue: true,
-		JSArgs:  []interface{}{jsElement},
-		JS:      fmt.Sprintf(`function (f /* %s */, ...args) { return f.apply(this, args) }`, jsElement.Name),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return browser.ToElement(e, p), nil
+	return p.FromROD(page).Document()
 }
 
 func (o ToFrameType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
+	return as.Run(p, value)
+}
+
+type CustomType struct {
+	fn func(p *browser.Page, parentResults ...ActionResult) (s any, err error)
+}
+
+var _ ActionType = CustomType{}
+
+func Custom(fn func(p *browser.Page, parentResults ...ActionResult) (s any, err error)) CustomType {
+	return CustomType{
+		fn: fn,
+	}
+}
+
+func (o CustomType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
+	return o.fn(p, parentResults...)
+}
+
+func (o CustomType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {
 	return as.Run(p, value)
 }
