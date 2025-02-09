@@ -337,6 +337,29 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 	return
 }
 
+func (page *Page) Search(query string) (ele *Element, err error) {
+	sr, err := page.page.Search(query)
+	if err != nil {
+		return nil, err
+	}
+	sr.Release()
+
+	ele = &Element{
+		element: sr.First,
+		page:    page,
+	}
+
+	return ele, nil
+}
+
+func (page *Page) MustSearch(query string) (ele *Element) {
+	ele, err := page.Search(query)
+	if err != nil {
+		panic(err)
+	}
+	return ele
+}
+
 type PageOptions struct {
 	Ctx            context.Context
 	Network        func(p *proto.NetworkEmulateNetworkConditions)
