@@ -45,7 +45,9 @@ type ActionType interface {
 type Actions []Action
 
 // Run 执行 action
-func (as Actions) Run(p *browser.Page, parentResults ...ActionResult) (data []ActionResult, err error) {
+func (as Actions) Run(page *browser.Page, parentResults ...ActionResult) (data []ActionResult, err error) {
+	// p := page.Timeout(page.GetTimeout())
+	p := page
 	data = make([]ActionResult, 0, len(as))
 	keys := zarray.Map(as, func(_ int, v Action) string {
 		return v.Name
@@ -198,9 +200,9 @@ func (o ScreenshoType) Do(p *browser.Page, parentResults ...ActionResult) (s any
 	element, has := ExtractElement(parentResults...)
 	if has {
 		if o.selector != "" {
-			element, has = element.Element(o.selector)
-			if !has {
-				return nil, errors.New("element not found")
+			element, err = element.Element(o.selector)
+			if err != nil {
+				return nil, err
 			}
 		}
 

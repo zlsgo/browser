@@ -42,12 +42,12 @@ func (o ClickType) Do(p *browser.Page, parentResults ...ActionResult) (s any, er
 	element, has := ExtractElement(parentResults...)
 	if has {
 		if o.selector != "" {
-			element, has = element.Element(o.selector)
+			element, err = element.Element(o.selector)
 		}
-		if has {
-			return nil, element.Click()
+		if err != nil {
+			return nil, err
 		}
-		return nil, errors.New("not found element")
+		return nil, element.Click()
 	}
 
 	return nil, p.MustElement(o.selector).Click()
@@ -249,7 +249,7 @@ func Custom(fn func(p *browser.Page, parentResults ...ActionResult) (s any, err 
 }
 
 func (o CustomType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
-	return o.fn(p, parentResults...)
+	return o.fn(p.Timeout(p.GetTimeout()), parentResults...)
 }
 
 func (o CustomType) Next(p *browser.Page, as Actions, value ActionResult) ([]ActionResult, error) {

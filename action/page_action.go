@@ -55,13 +55,13 @@ func ClickNewPage(selector string) ClickNewPageType {
 func (o ClickNewPageType) Do(p *browser.Page, parentResults ...ActionResult) (s any, err error) {
 	element, has := ExtractElement(parentResults...)
 	if !has {
-		element, has = p.Element(o.selector)
+		element, err = p.Element(o.selector)
 	} else if o.selector != "" {
-		element, has = element.Element(o.selector)
+		element, err = element.Element(o.selector)
 	}
 
-	if !has {
-		return nil, errors.New("not found")
+	if err != nil {
+		return nil, err
 	}
 
 	page, err := p.WaitOpen(func() error {

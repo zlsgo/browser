@@ -98,10 +98,9 @@ func (e *Element) HasElement(selector string) (bool, *Element) {
 }
 
 // Element 获取元素，会等待元素出现
-func (e *Element) Element(selector string, jsRegex ...string) (element *Element, has bool) {
+func (e *Element) Element(selector string, jsRegex ...string) (element *Element, err error) {
 	var (
 		relm *rod.Element
-		err  error
 	)
 	if len(jsRegex) == 0 {
 		relm, err = e.element.Element(selector)
@@ -110,19 +109,19 @@ func (e *Element) Element(selector string, jsRegex ...string) (element *Element,
 	}
 
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	return &Element{
 		element: relm,
 		page:    e.page,
-	}, true
+	}, nil
 }
 
 func (e *Element) MustElement(selector string, jsRegex ...string) *Element {
-	elm, has := e.Element(selector, jsRegex...)
-	if !has {
-		panic(&rod.ElementNotFoundError{})
+	elm, err := e.Element(selector, jsRegex...)
+	if err != nil {
+		panic(err)
 	}
 	return elm
 }

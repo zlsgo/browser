@@ -169,20 +169,17 @@ func (page *Page) Timeout(d ...time.Duration) *Page {
 	if page.timeout != 0 {
 		rpage = rpage.CancelTimeout()
 	}
-
-	p := &Page{
+	timeout := page.GetTimeout(d...)
+	if timeout != 0 && timeout >= 0 {
+		rpage = rpage.Timeout(timeout)
+	}
+	return &Page{
 		ctx:     page.ctx,
 		page:    rpage,
 		Options: page.Options,
 		browser: page.browser,
-		timeout: page.GetTimeout(d...),
+		timeout: timeout,
 	}
-
-	if p.timeout != 0 && p.timeout >= 0 {
-		p.page = p.page.Timeout(p.timeout)
-	}
-
-	return p
 }
 
 // HasElement 检查元素是否存在，不会等待元素出现
@@ -199,16 +196,15 @@ func (page *Page) HasElement(selector string) (bool, *Element) {
 }
 
 // Element 获取元素，会等待元素出现
-func (page *Page) Element(selector string, jsRegex ...string) (ele *Element, has bool) {
+func (page *Page) Element(selector string, jsRegex ...string) (ele *Element, err error) {
 	var (
-		e   *rod.Element
-		err error
+		e *rod.Element
 	)
 
 	if len(jsRegex) == 0 {
 		e, err = page.page.Element(selector)
 	} else {
-		e = page.page.MustElementByJS(selector, jsRegex[0])
+		e, err = page.page.ElementByJS(rod.Eval(selector, jsRegex[0]))
 	}
 	if err != nil {
 		return
@@ -217,15 +213,12 @@ func (page *Page) Element(selector string, jsRegex ...string) (ele *Element, has
 	return &Element{
 		element: e,
 		page:    page,
-	}, true
+	}, nil
 }
 
 func (page *Page) MustElement(selector string, jsRegex ...string) (ele *Element) {
 	var err error
-	element, has := page.Element(selector, jsRegex...)
-	if !has {
-		err = &rod.ElementNotFoundError{}
-	}
+	element, err := page.Element(selector, jsRegex...)
 	if err != nil {
 		panic(err)
 	}
@@ -306,7 +299,6 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 			return ele.element, nil
 		}).MustHandle(func(element *rod.Element) {
 			name = k
-
 			ele = &Element{
 				element: element,
 				page:    page,
@@ -322,15 +314,20 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 		})
 	}
 
-	if _, err := race.Do(); err != nil {
-		return "", nil, err
+	_, doErr := race.Do()
+	if err == nil && doErr != nil {
+		err = doErr
 	}
 
-	if err == nil && retry {
-		url := info.URL
-		err = page.NavigateWaitLoad(url)
-		if err == nil {
-			return page.RaceElement(elements)
+	if err != nil {
+		name = ""
+		if retry {
+			t := page.GetTimeout()
+			err = page.Timeout(t).NavigateWaitLoad(info.URL)
+			if err == nil {
+				_ = page.Timeout(t).WaitDOMStable(0.1)
+				return page.Timeout(t).RaceElement(elements)
+			}
 		}
 	}
 
