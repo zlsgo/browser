@@ -40,14 +40,23 @@ func (e *Element) ROD() *rod.Element {
 }
 
 func (e *Element) Timeout(d ...time.Duration) *Element {
+	element := e.element
+	if e.page.timeout != 0 {
+		element = element.CancelTimeout()
+	}
+
 	if len(d) > 0 {
-		e.element = e.element.Timeout(d[0])
+		if d[0] >= 0 {
+			element = element.Timeout(d[0])
+		}
 	} else if e.page.timeout != 0 {
-		e.element = e.element.Timeout(e.page.timeout)
+		if e.page.timeout >= 0 {
+			element = element.Timeout(e.page.timeout)
+		}
 	}
 
 	return &Element{
-		element: e.element,
+		element: element,
 		page:    e.page,
 	}
 }

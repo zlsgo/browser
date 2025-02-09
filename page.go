@@ -163,17 +163,23 @@ func (page *Page) GetTimeout(d ...time.Duration) time.Duration {
 	return page.timeout
 }
 
+// Timeout 设置超时
 func (page *Page) Timeout(d ...time.Duration) *Page {
+	rpage := page.page
+	if page.timeout != 0 {
+		rpage = rpage.CancelTimeout()
+	}
+
 	p := &Page{
 		ctx:     page.ctx,
-		page:    page.page,
+		page:    rpage,
 		Options: page.Options,
 		browser: page.browser,
 		timeout: page.GetTimeout(d...),
 	}
 
-	if p.timeout != 0 {
-		p.page = page.page.Timeout(p.timeout)
+	if p.timeout != 0 && p.timeout >= 0 {
+		p.page = p.page.Timeout(p.timeout)
 	}
 
 	return p
