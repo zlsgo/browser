@@ -169,7 +169,13 @@ func (page *Page) Timeout(d ...time.Duration) *Page {
 	if page.timeout != 0 {
 		rpage = rpage.CancelTimeout()
 	}
-	timeout := page.GetTimeout(d...)
+
+	var timeout time.Duration
+	if len(d) > 0 {
+		timeout = d[0]
+	} else {
+		timeout = page.GetTimeout()
+	}
 	if timeout != 0 && timeout >= 0 {
 		rpage = rpage.Timeout(timeout)
 	}

@@ -45,14 +45,15 @@ func (e *Element) Timeout(d ...time.Duration) *Element {
 		element = element.CancelTimeout()
 	}
 
+	var timeout time.Duration
 	if len(d) > 0 {
-		if d[0] >= 0 {
-			element = element.Timeout(d[0])
-		}
-	} else if e.page.timeout != 0 {
-		if e.page.timeout >= 0 {
-			element = element.Timeout(e.page.timeout)
-		}
+		timeout = d[0]
+	} else {
+		timeout = e.page.GetTimeout()
+	}
+
+	if timeout >= 0 {
+		element = element.Timeout(timeout)
 	}
 
 	return &Element{
