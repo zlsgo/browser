@@ -80,6 +80,9 @@ func (page *Page) WaitOpen(fn func() error, d ...time.Duration) (*Page, error) {
 
 	newPage := *page
 	newPage.page = nPage
+	if newPage.ctx != nil {
+		newPage.page = newPage.page.Context(newPage.ctx)
+	}
 	return &newPage, nil
 }
 
@@ -203,9 +206,7 @@ func (page *Page) HasElement(selector string) (bool, *Element) {
 
 // Element 获取元素，会等待元素出现
 func (page *Page) Element(selector string, jsRegex ...string) (ele *Element, err error) {
-	var (
-		e *rod.Element
-	)
+	var e *rod.Element
 
 	if len(jsRegex) == 0 {
 		e, err = page.page.Element(selector)
@@ -364,12 +365,18 @@ func (page *Page) MustSearch(query string) (ele *Element) {
 }
 
 type PageOptions struct {
-	Ctx            context.Context
-	Network        func(p *proto.NetworkEmulateNetworkConditions)
-	Hijack         map[string]HijackProcess
-	Device         devices.Device
-	Timeout        time.Duration
-	Keep           bool
+	Ctx     context.Context
+	Network func(p *proto.NetworkEmulateNetworkConditions)
+	Hijack  map[string]HijackProcess
+	// 模拟设备
+	Device devices.Device
+	// 操作超时
+	Timeout time.Duration
+	// 是否保持页面
+	Keep bool
+	// 最长执行时间
+	MaxTime time.Duration
+	// 是否触发 favicon
 	TriggerFavicon bool
 }
 
@@ -394,7 +401,8 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 	}
 
 	o := zutil.Optional(PageOptions{
-		Timeout: time.Second * 60,
+		Timeout:        time.Second * 120,
+		TriggerFavicon: true,
 		// Device:  devices.LaptopWithMDPIScreen,
 	}, opts...)
 	{
@@ -480,6 +488,18 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 	}
 
 	return zerror.TryCatch(func() error {
+		if p.Options.MaxTime > 0 {
+			go func() {
+				timer := time.NewTimer(p.Options.MaxTime)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+					p.page.Close()
+				case <-p.ctx.Done():
+				case <-p.page.GetContext().Done():
+				}
+			}()
+		}
 		return process(p)
 	})
 }

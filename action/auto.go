@@ -321,3 +321,8 @@ func (a *Auto) Start(opt ...func(o *browser.PageOptions)) (data AutoResult, err 
 
 	return
 }
+
+// Close 关闭浏览器
+func (a *Auto) Close() error {
+	return a.browser.Close()
+}
