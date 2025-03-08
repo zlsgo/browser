@@ -48,6 +48,9 @@ type Actions []Action
 func (as Actions) Run(page *browser.Page, parentResults ...ActionResult) (data []ActionResult, err error) {
 	// p := page.Timeout(page.GetTimeout())
 	p := page
+	as = zarray.Filter(as, func(_ int, v Action) bool {
+		return v.Action != nil
+	})
 	data = make([]ActionResult, 0, len(as))
 	keys := zarray.Map(as, func(_ int, v Action) string {
 		return v.Name
