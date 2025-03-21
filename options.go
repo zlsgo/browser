@@ -154,12 +154,16 @@ func setExtensions(b *Browser) {
 func setFlags(b *Browser) {
 	for n, v := range b.options.Flags {
 		_ = zerror.TryCatch(func() error {
-			b.launcher.Set(flags.Flag(n), v)
+			if v == "" {
+				b.launcher = b.launcher.Set(flags.Flag(n))
+			} else {
+				b.launcher = b.launcher.Set(flags.Flag(n), v)
+			}
 			return nil
 		})
 	}
 	if b.options.ProxyUrl != "" {
-		b.launcher.Set(flags.ProxyServer, b.options.ProxyUrl)
+		b.launcher = b.launcher.Set(flags.ProxyServer, b.options.ProxyUrl)
 	}
 }
 
