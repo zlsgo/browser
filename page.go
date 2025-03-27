@@ -475,10 +475,6 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 		return zerror.With(err, "failed to open the page")
 	}
 
-	if b.userAgent == nil {
-		_ = b.setUserAgent(p)
-	}
-
 	if process == nil {
 		return nil
 	}
@@ -527,24 +523,6 @@ func hijaclProcess(h *Hijack, p HijackProcess) {
 	}
 
 	h.CustomState = true
-}
-
-func (b *Browser) setUserAgent(page *Page) *proto.NetworkSetUserAgentOverride {
-	if b.userAgent == nil {
-		b.userAgent = &proto.NetworkSetUserAgentOverride{}
-	}
-
-	resp, err := page.page.Eval(`() => navigator.userAgent`)
-	if err == nil {
-		b.userAgent.UserAgent = resp.Value.String()
-	}
-
-	resp, err = page.page.Eval(`() => navigator.language`)
-	if err == nil {
-		b.userAgent.AcceptLanguage = resp.Value.String()
-	}
-
-	return b.userAgent
 }
 
 func (page *Page) hijack(fn func(router *rod.HijackRouter)) func() error {

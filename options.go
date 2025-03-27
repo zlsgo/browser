@@ -200,6 +200,11 @@ func setDefaultDevice(b *Browser) {
 		}
 
 		if v, err := b.Browser.Version(); err == nil {
+			if b.userAgent == nil {
+				userAgent := strings.Replace(v.UserAgent, "Headless", "", -1)
+				b.userAgent = &proto.NetworkSetUserAgentOverride{UserAgent: userAgent}
+			}
+
 			b.client.SetUserAgent(func() string {
 				if b.userAgent == nil {
 					return strings.Replace(v.UserAgent, "Headless", "", -1)
