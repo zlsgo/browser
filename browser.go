@@ -14,17 +14,17 @@ import (
 )
 
 type Browser struct {
-	options            Options
 	err                error
+	userAgent          *proto.NetworkSetUserAgentOverride
 	log                *zlog.Logger
 	launcher           *launcher.Launcher
 	Browser            *rod.Browser
 	client             *zhttp.Engine
-	userAgent          *proto.NetworkSetUserAgentOverride
 	id                 string
 	after              []func()
 	before             []func()
 	cookies            []*http.Cookie
+	options            Options
 	isCustomWSEndpoint bool
 	canUserDir         bool
 }
@@ -38,14 +38,14 @@ func New(opts ...func(o *Options)) (browser *Browser, err error) {
 	browser.options = zutil.Optional(Options{
 		autoKill: true,
 		Headless: true,
-		Stealth:  true,
-		browser:  browser,
+		// Stealth:  true,
+		browser: browser,
 		Flags: map[string]string{
-			"no-sandbox": "",
-			// "disable-gpu":              "",
+			"no-sandbox":               "",
 			"disable-blink-features":   "AutomationControlled",
 			"no-default-browser-check": "",
 			"no-first-run":             "",
+			// "disable-gpu":              "",
 			// "no-startup-window":        "",
 			"window-position": "0,0",
 		},

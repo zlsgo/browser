@@ -14,10 +14,10 @@ import (
 )
 
 type Page struct {
-	Options PageOptions
 	ctx     context.Context
 	page    *rod.Page
 	browser *Browser
+	Options PageOptions
 	timeout time.Duration
 }
 
@@ -35,7 +35,6 @@ func (page *Page) ROD() *rod.Page {
 	return page.page
 }
 
-// Browser 获取浏览器实例
 // Browser 获取浏览器实例
 func (page *Page) Browser() *Browser {
 	return page.browser
@@ -179,9 +178,11 @@ func (page *Page) Timeout(d ...time.Duration) *Page {
 	} else {
 		timeout = page.GetTimeout()
 	}
+
 	if timeout != 0 && timeout >= 0 {
 		rpage = rpage.Timeout(timeout)
 	}
+
 	return &Page{
 		ctx:     page.ctx,
 		page:    rpage,
@@ -365,18 +366,13 @@ func (page *Page) MustSearch(query string) (ele *Element) {
 }
 
 type PageOptions struct {
-	Ctx     context.Context
-	Network func(p *proto.NetworkEmulateNetworkConditions)
-	Hijack  map[string]HijackProcess
-	// 模拟设备
-	Device devices.Device
-	// 操作超时
-	Timeout time.Duration
-	// 是否保持页面
-	Keep bool
-	// 最长执行时间
-	MaxTime time.Duration
-	// 是否触发 favicon
+	Ctx            context.Context
+	Network        func(p *proto.NetworkEmulateNetworkConditions)
+	Hijack         map[string]HijackProcess
+	Device         devices.Device
+	Timeout        time.Duration
+	MaxTime        time.Duration
+	Keep           bool
 	TriggerFavicon bool
 }
 
@@ -500,6 +496,7 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 				}
 			}()
 		}
+
 		return process(p)
 	})
 }
@@ -530,6 +527,24 @@ func hijaclProcess(h *Hijack, p HijackProcess) {
 	}
 
 	h.CustomState = true
+}
+
+func (b *Browser) setUserAgent(page *Page) *proto.NetworkSetUserAgentOverride {
+	if b.userAgent == nil {
+		b.userAgent = &proto.NetworkSetUserAgentOverride{}
+	}
+
+	resp, err := page.page.Eval(`() => navigator.userAgent`)
+	if err == nil {
+		b.userAgent.UserAgent = resp.Value.String()
+	}
+
+	resp, err = page.page.Eval(`() => navigator.language`)
+	if err == nil {
+		b.userAgent.AcceptLanguage = resp.Value.String()
+	}
+
+	return b.userAgent
 }
 
 func (page *Page) hijack(fn func(router *rod.HijackRouter)) func() error {
