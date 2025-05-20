@@ -60,7 +60,30 @@ func transformHeaders(h []*proto.FetchHeaderEntry) http.Header {
 	return newHeader
 }
 
-// RandomSleep 随机暂停指定时间范围，单位毫秒
+// RandomSleep randomly pause for a specified time range, unit in milliseconds
 func RandomSleep(ms, maxMS int) {
 	time.Sleep(time.Millisecond * time.Duration(ms+rand.Intn(maxMS)))
+}
+
+// uniqueCookies duplicate removal processing for cookies
+// When encountering a Cookie with the same combination of Name+Path+Domain, the latter Cookie will overwrite the former Cookie
+func (browser *Browser) uniqueCookies(cookies []*http.Cookie) []*http.Cookie {
+	cookieMap := make(map[string]*http.Cookie)
+
+	for _, c := range browser.cookies {
+		key := c.Name + c.Path + c.Domain
+		cookieMap[key] = c
+	}
+
+	for _, c := range cookies {
+		key := c.Name + c.Path + c.Domain
+		cookieMap[key] = c
+	}
+
+	nCookies := make([]*http.Cookie, 0, len(cookieMap))
+	for i := range cookieMap {
+		nCookies = append(nCookies, cookieMap[i])
+	}
+
+	return nCookies
 }

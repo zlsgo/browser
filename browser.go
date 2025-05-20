@@ -1,8 +1,10 @@
 package browser
 
 import (
+	"errors"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
@@ -115,4 +117,76 @@ func (b *Browser) Cleanup() {
 
 func (b *Browser) Release() {
 	b.Cleanup()
+}
+
+// SetCookie set global cookies
+func (b *Browser) SetCookies(cookies []*http.Cookie) error {
+	if cookies == nil {
+		b.cookies = make([]*http.Cookie, 0, 0)
+		_ = b.Browser.SetCookies(nil)
+		return nil
+	}
+
+	b.cookies = b.uniqueCookies(cookies)
+	c, err := b.cookiesToProto(cookies)
+	if err != nil {
+		return errors.New("failed to set cookie: " + err.Error())
+	}
+
+	b.Browser.SetCookies(c)
+	return nil
+}
+
+// GetCookie get global cookies
+func (b *Browser) GetCookies() ([]*http.Cookie, error) {
+	protoCookies, err := b.Browser.GetCookies()
+	if err != nil {
+		return []*http.Cookie{}, err
+	}
+
+	cookies := make([]*http.Cookie, 0, len(protoCookies))
+	for i := range protoCookies {
+		value := protoCookies[i].Value
+		if strings.HasPrefix(value, "\"") && strings.HasSuffix(value, "\"") {
+			value = value[1 : len(value)-1]
+		}
+		cookie := http.Cookie{
+			Name:     protoCookies[i].Name,
+			Value:    value,
+			Path:     protoCookies[i].Path,
+			Domain:   protoCookies[i].Domain,
+			Secure:   protoCookies[i].Secure,
+			HttpOnly: protoCookies[i].HTTPOnly,
+		}
+		if protoCookies[i].Expires > 0 {
+			cookie.Expires = protoCookies[i].Expires.Time()
+		}
+		cookies = append(cookies, &cookie)
+	}
+
+	return cookies, nil
+}
+
+func (b *Browser) cookiesToProto(cookies []*http.Cookie) ([]*proto.NetworkCookieParam, error) {
+	protoCookies := make([]*proto.NetworkCookieParam, 0, len(cookies))
+	for i := range cookies {
+		if cookies[i].Domain == "" {
+			return nil, errors.New("domain is required for cookie configuration")
+		}
+		if cookies[i].Name == "" {
+			return nil, errors.New("name is required for cookie configuration")
+		}
+
+		protoCookies = append(protoCookies, &proto.NetworkCookieParam{
+			Name:     cookies[i].Name,
+			Value:    cookies[i].Value,
+			Expires:  proto.TimeSinceEpoch(cookies[i].Expires.Unix()),
+			Path:     cookies[i].Path,
+			Domain:   cookies[i].Domain,
+			Secure:   cookies[i].Secure,
+			HTTPOnly: cookies[i].HttpOnly,
+		})
+	}
+
+	return protoCookies, nil
 }
