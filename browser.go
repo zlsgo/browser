@@ -49,7 +49,8 @@ func New(opts ...func(o *Options)) (browser *Browser, err error) {
 			"no-first-run":             "",
 			// "disable-gpu":              "",
 			// "no-startup-window":        "",
-			"window-position": "0,0",
+			"disable-component-update": "",
+			"window-position":          "0,0",
 		},
 		IgnoreCertError: true,
 	}, opts...)

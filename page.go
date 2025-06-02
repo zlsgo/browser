@@ -463,7 +463,7 @@ func (b *Browser) Open(url string, process func(*Page) error, opts ...func(o *Pa
 
 	p.Options = o
 
-	if p.browser.options.Stealth {
+	if p.browser.options.Stealth && len(stealth) > 0 {
 		p.page.MustEvalOnNewDocument(`(()=>{` + stealth + `})()`)
 	}
 
