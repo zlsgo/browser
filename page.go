@@ -4,12 +4,14 @@ import (
 	"context"
 	_ "embed"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/devices"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/sohaha/zlsgo/zerror"
+	"github.com/sohaha/zlsgo/zlog"
 	"github.com/sohaha/zlsgo/zutil"
 )
 
@@ -63,37 +65,72 @@ func (page *Page) NavigateComplete(fn func(), d ...time.Duration) {
 	return
 }
 
-// WaitOpen 等待新页面打开，注意手动关闭新页面
-func (page *Page) WaitOpen(fn func() error, d ...time.Duration) (*Page, error) {
-	w := page.waitOpen(d...)
+type OpenType int
+
+const (
+	OpenTypeCurrent OpenType = iota
+	OpenTypeNewTab
+	OpenTypeSpa
+)
+
+// WaitOpen 等待页面打开，注意手动关闭新页面
+func (page *Page) WaitOpen(openType OpenType, fn func() error, d ...time.Duration) (*Page, error) {
+	var wait func() (*Page, error)
+	if openType == OpenTypeNewTab {
+		waitNavigation := page.waitOpen(d...)
+		wait = func() (*Page, error) {
+			nPage, err := waitNavigation()
+			if err != nil {
+				return nil, err
+			}
+
+			newPage := *page
+			newPage.page = nPage
+			if newPage.ctx != nil {
+				newPage.page = newPage.page.Context(newPage.ctx)
+			}
+			zlog.Debug("等待激活")
+			_, err = nPage.Activate()
+			zlog.Debug("激活", err)
+			if err != nil {
+				nPage.Close()
+				return nil, err
+			}
+			return &newPage, nil
+		}
+	} else {
+		waitNavigation := page.Timeout(d...).page.WaitNavigation(proto.PageLifecycleEventNameNetworkAlmostIdle)
+		wait = func() (*Page, error) {
+			waitNavigation()
+			return page, nil
+		}
+	}
 
 	err := fn()
 	if err != nil {
 		return nil, err
 	}
 
-	nPage, err := w()
-	if err != nil {
-		return nil, err
-	}
-
-	newPage := *page
-	newPage.page = nPage
-	if newPage.ctx != nil {
-		newPage.page = newPage.page.Context(newPage.ctx)
-	}
-	return &newPage, nil
+	return wait()
 }
 
 func (p *Page) waitOpen(d ...time.Duration) func() (*rod.Page, error) {
-	var targetID proto.TargetTargetID
+	var (
+		targetID proto.TargetTargetID
+		mu       sync.Mutex
+	)
 
 	b := p.browser.Browser.Context(p.ctx)
 	wait := b.Timeout(p.GetTimeout(d...)).EachEvent(func(e *proto.TargetTargetCreated) bool {
-		targetID = e.TargetInfo.TargetID
+		mu.Lock()
+		defer mu.Unlock()
+
+		if targetID == "" {
+			targetID = e.TargetInfo.TargetID
+		}
+
 		return e.TargetInfo.OpenerID == p.page.TargetID
 	})
-
 	return func() (*rod.Page, error) {
 		wait()
 		return b.PageFromTarget(targetID)
@@ -136,17 +173,6 @@ func (page *Page) NavigateWaitLoad(url string) (err error) {
 	}
 
 	return err
-}
-
-// WaitNavigation 等待页面切换
-func (page *Page) WaitNavigation(fn func() error, d ...time.Duration) error {
-	wait := page.Timeout(d...).page.MustWaitNavigation()
-	err := fn()
-	if err != nil {
-		return err
-	}
-	wait()
-	return nil
 }
 
 // WithTimeout 包裹一个内置的超时处理
