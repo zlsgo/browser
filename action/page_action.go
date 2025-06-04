@@ -64,7 +64,7 @@ func (o ClickNewPageType) Do(p *browser.Page, parentResults ...ActionResult) (s 
 		return nil, err
 	}
 
-	page, err := p.WaitOpen(func() error {
+	page, err := p.WaitOpen(browser.OpenTypeNewTab, func() error {
 		return element.Click()
 	})
 	return page, err
