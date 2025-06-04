@@ -88,8 +88,8 @@ func (page *Page) WaitOpen(fn func() error, d ...time.Duration) (*Page, error) {
 func (p *Page) waitOpen(d ...time.Duration) func() (*rod.Page, error) {
 	var targetID proto.TargetTargetID
 
-	b := p.browser.Browser
-	wait := b.Context(p.ctx).Timeout(p.GetTimeout(d...)).EachEvent(func(e *proto.TargetTargetCreated) bool {
+	b := p.browser.Browser.Context(p.ctx)
+	wait := b.Timeout(p.GetTimeout(d...)).EachEvent(func(e *proto.TargetTargetCreated) bool {
 		targetID = e.TargetInfo.TargetID
 		return e.TargetInfo.OpenerID == p.page.TargetID
 	})
@@ -136,6 +136,17 @@ func (page *Page) NavigateWaitLoad(url string) (err error) {
 	}
 
 	return err
+}
+
+// WaitNavigation 等待页面切换
+func (page *Page) WaitNavigation(fn func() error, d ...time.Duration) error {
+	wait := page.Timeout(d...).page.MustWaitNavigation()
+	err := fn()
+	if err != nil {
+		return err
+	}
+	wait()
+	return nil
 }
 
 // WithTimeout 包裹一个内置的超时处理
