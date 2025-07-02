@@ -4,6 +4,8 @@ import (
 	"context"
 	_ "embed"
 	"errors"
+	"math"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -11,7 +13,9 @@ import (
 	"github.com/go-rod/rod/lib/devices"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/sohaha/zlsgo/zerror"
+	"github.com/sohaha/zlsgo/zstring"
 	"github.com/sohaha/zlsgo/zutil"
+	"github.com/ysmood/gson"
 )
 
 type Page struct {
@@ -61,7 +65,6 @@ func (page *Page) NavigateComplete(fn func(), d ...time.Duration) {
 	wait := page.Timeout(d...).page.MustWaitNavigation()
 	fn()
 	wait()
-	return
 }
 
 type OpenType int
@@ -320,6 +323,7 @@ type RaceElementFunc struct {
 	Handle  func(element *Element) (retry bool, err error)
 }
 
+// RaceElement 等待多个元素出现，返回第一个出现的元素
 func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string, ele *Element, err error) {
 	info, ierr := page.page.Info()
 	if ierr != nil {
@@ -388,6 +392,7 @@ func (page *Page) RaceElement(elements map[string]RaceElementFunc) (name string,
 	return
 }
 
+// Search 搜索元素
 func (page *Page) Search(query string) (ele *Element, err error) {
 	sr, err := page.page.Search(query)
 	if err != nil {
@@ -403,6 +408,7 @@ func (page *Page) Search(query string) (ele *Element, err error) {
 	return ele, nil
 }
 
+// MustSearch 搜索元素，如果出错则 panic
 func (page *Page) MustSearch(query string) (ele *Element) {
 	ele, err := page.Search(query)
 	if err != nil {
@@ -580,4 +586,411 @@ func (page *Page) hijack(fn func(router *rod.HijackRouter)) func() error {
 
 func (page *Page) Reload() error {
 	return page.page.Reload()
+}
+
+// ScrollStrategy 滚动策略类型
+type ScrollStrategy int
+
+const (
+	// ScrollStrategyAuto 自动选择滚动策略
+	ScrollStrategyAuto ScrollStrategy = iota
+	// ScrollStrategyCenter 将元素滚动到视口中心
+	ScrollStrategyCenter
+	// ScrollStrategyTop 将元素滚动到视口顶部
+	ScrollStrategyTop
+	// ScrollStrategyVisible 仅确保元素可见（最小滚动）
+	ScrollStrategyVisible
+)
+
+// NaturalScroll 自然滚动到元素位置
+func (page *Page) NaturalScroll(e *Element, expectedDuration time.Duration, horizontal ...bool) error {
+	// 使用自动策略，根据元素类型自动选择最合适的滚动策略
+	return page.NaturalScrollWithStrategy(e, expectedDuration, ScrollStrategyAuto, horizontal...)
+}
+
+// NaturalScrollWithStrategy 使用指定策略进行自然滚动
+func (page *Page) NaturalScrollWithStrategy(e *Element, expectedDuration time.Duration, strategy ScrollStrategy, horizontal ...bool) error {
+	deadline := time.Now().Add(expectedDuration)
+	box, err := e.Box()
+	if err != nil {
+		return err
+	}
+
+	var viewportInfo gson.JSON
+	viewportInfo, err = page.EvalJS(`() => ({ 
+		scrollX: window.scrollX, 
+		scrollY: window.scrollY, 
+		innerWidth: window.innerWidth, 
+		innerHeight: window.innerHeight 
+	})`)
+	if err != nil {
+		return err
+	}
+
+	currentScrollX := float64(viewportInfo.Get("scrollX").Int())
+	currentScrollY := float64(viewportInfo.Get("scrollY").Int())
+	viewportWidth := float64(viewportInfo.Get("innerWidth").Int())
+	viewportHeight := float64(viewportInfo.Get("innerHeight").Int())
+
+	elementCenterX := box.X + box.Width/2
+	elementCenterY := box.Y + box.Height/2
+
+	targetScrollX := elementCenterX - viewportWidth/2
+	targetScrollY := elementCenterY - viewportHeight/2
+
+	horizontalScrollDistance := targetScrollX - currentScrollX
+	verticalScrollDistance := targetScrollY - currentScrollY
+
+	isHorizontal := false
+	var scrollDistance float64
+
+	if len(horizontal) > 0 {
+		isHorizontal = horizontal[0]
+		if isHorizontal {
+			scrollDistance = horizontalScrollDistance
+		} else {
+			scrollDistance = verticalScrollDistance
+		}
+	} else {
+		elementLeft := box.X
+		elementRight := box.X + box.Width
+		elementTop := box.Y
+		elementBottom := box.Y + box.Height
+
+		viewportLeft := currentScrollX
+		viewportRight := currentScrollX + viewportWidth
+		viewportTop := currentScrollY
+		viewportBottom := currentScrollY + viewportHeight
+
+		horizontalVisible := math.Max(0, math.Min(elementRight, viewportRight)-math.Max(elementLeft, viewportLeft)) / box.Width
+		verticalVisible := math.Max(0, math.Min(elementBottom, viewportBottom)-math.Max(elementTop, viewportTop)) / box.Height
+
+		if strategy == ScrollStrategyAuto {
+			tagName, err := e.TagName()
+			if err == nil {
+				switch tagName {
+				case "img", "video", "canvas", "svg":
+					if horizontalVisible < 1.0 && verticalVisible < 1.0 {
+						isHorizontal = horizontalVisible < verticalVisible
+					} else if horizontalVisible < 1.0 {
+						isHorizontal = true
+					} else if verticalVisible < 1.0 {
+						isHorizontal = false
+					} else {
+						isHorizontal = math.Abs(horizontalScrollDistance) > math.Abs(verticalScrollDistance)
+					}
+				case "input", "textarea", "select", "button":
+					isHorizontal = false
+				case "table", "thead", "tbody", "tr", "td", "th":
+					if box.Width > viewportWidth*1.2 {
+						isHorizontal = true
+					} else {
+						// 否则优先垂直滚
+						isHorizontal = false
+					}
+				default:
+					if (horizontalVisible < verticalVisible) ||
+						(math.Abs(horizontalScrollDistance) > math.Abs(verticalScrollDistance)*1.5) {
+						isHorizontal = true
+					} else {
+						isHorizontal = false
+					}
+				}
+			} else {
+				if (horizontalVisible < verticalVisible) ||
+					(math.Abs(horizontalScrollDistance) > math.Abs(verticalScrollDistance)*1.5) {
+					isHorizontal = true
+				} else {
+					isHorizontal = false
+				}
+			}
+		} else if strategy == ScrollStrategyCenter {
+			isHorizontal = math.Abs(horizontalScrollDistance) > math.Abs(verticalScrollDistance)
+		} else if strategy == ScrollStrategyTop {
+			isHorizontal = false
+		} else if strategy == ScrollStrategyVisible {
+			isHorizontal = horizontalVisible < verticalVisible
+		} else {
+			if (horizontalVisible < verticalVisible) ||
+				(math.Abs(horizontalScrollDistance) > math.Abs(verticalScrollDistance)*1.5) {
+				isHorizontal = true
+			} else {
+				isHorizontal = false
+			}
+		}
+
+		if isHorizontal {
+			scrollDistance = horizontalScrollDistance
+		} else {
+			scrollDistance = verticalScrollDistance
+		}
+	}
+
+	if expectedDuration == 0 || math.Abs(scrollDistance) < 100 {
+		autoSteps := int(math.Max(8, math.Min(40, math.Abs(scrollDistance)/15)))
+
+		if math.Abs(scrollDistance) > 50 {
+			initialStep := scrollDistance * 0.1 * (0.8 + 0.4*rand.Float64())
+			initialStepCount := int(math.Max(3, math.Min(8, math.Abs(initialStep)/10)))
+
+			if isHorizontal {
+				page.page.Mouse.Scroll(initialStep, 0, initialStepCount)
+			} else {
+				page.page.Mouse.Scroll(0, initialStep, initialStepCount)
+			}
+
+			time.Sleep(time.Duration(20+rand.Intn(40)) * time.Millisecond)
+
+			mainStep := scrollDistance - initialStep
+			if isHorizontal {
+				page.page.Mouse.Scroll(mainStep, 0, autoSteps)
+			} else {
+				page.page.Mouse.Scroll(0, mainStep, autoSteps)
+			}
+		} else {
+			if isHorizontal {
+				page.page.Mouse.Scroll(scrollDistance, 0, autoSteps)
+			} else {
+				page.page.Mouse.Scroll(0, scrollDistance, autoSteps)
+			}
+		}
+
+		return e.ROD().ScrollIntoView()
+	}
+
+	maxSteps := int(expectedDuration.Seconds() * 2)
+	minSteps := int(math.Max(3, expectedDuration.Seconds()))
+	distanceBasedSteps := int(math.Abs(scrollDistance) / 100)
+	scrollCount := int(math.Max(float64(minSteps), math.Min(float64(maxSteps), float64(distanceBasedSteps))))
+
+	type scrollStep struct {
+		distance float64
+		delay    time.Duration
+	}
+
+	steps := make([]scrollStep, 0, scrollCount)
+	totalPlannedDelay := time.Duration(0)
+	totalActualDistance := 0.0
+
+	for i := 0; i < scrollCount; i++ {
+		progress := float64(i) / float64(scrollCount-1)
+
+		var speedFactor float64
+		if progress < 0.5 {
+			speedFactor = 4 * progress * progress
+		} else {
+			speedFactor = 1 - math.Pow(-2*progress+2, 2)/2
+		}
+
+		var randomFactor float64
+		if progress > 0.2 && progress < 0.8 {
+			randomFactor = float64(zstring.RandInt(70, 130)) / 100.0
+		} else {
+			randomFactor = float64(zstring.RandInt(85, 115)) / 100.0
+		}
+		baseStep := scrollDistance / float64(scrollCount)
+		currentStep := baseStep * speedFactor * randomFactor
+		totalActualDistance += currentStep
+
+		var baseDelay time.Duration
+		if progress < 0.2 || progress > 0.8 {
+			baseDelay = time.Duration(70+rand.Intn(100)) * time.Millisecond
+		} else {
+			baseDelay = time.Duration(40+rand.Intn(80)) * time.Millisecond
+		}
+
+		pauseProb := 0.08
+
+		if expectedDuration > time.Second*10 {
+			pauseProb = 0.15
+		}
+		if progress > 0.3 && progress < 0.7 {
+			pauseProb += 0.05
+		}
+		if rand.Float64() < pauseProb && i < scrollCount-1 {
+			var pauseTime int
+			if expectedDuration > time.Second*10 {
+				pauseTime = 150 + rand.Intn(250)
+			} else {
+				pauseTime = 80 + rand.Intn(150)
+			}
+
+			baseDelay += time.Duration(pauseTime) * time.Millisecond
+		}
+
+		steps = append(steps, scrollStep{
+			distance: currentStep,
+			delay:    baseDelay,
+		})
+
+		totalPlannedDelay += baseDelay
+	}
+
+	finalAdjustment := scrollDistance - totalActualDistance
+	if len(steps) > 0 {
+		steps[len(steps)-1].distance += finalAdjustment
+	}
+
+	reserveRatio := 0.15 + float64(scrollCount)*0.01
+	if reserveRatio > 0.3 {
+		reserveRatio = 0.3
+	}
+	timeAdjustFactor := float64(expectedDuration) * (1 - reserveRatio) / float64(totalPlannedDelay)
+
+	startTime := time.Now()
+
+	for i, step := range steps {
+		if time.Now().After(deadline) {
+			if isHorizontal {
+				currentPosInfo, _ := page.EvalJS(`() => ({ scrollX: window.scrollX })`)
+				currentX := float64(currentPosInfo.Get("scrollX").Int())
+				remainDist := targetScrollX - currentX
+
+				steps := int(math.Max(5, math.Min(30, math.Abs(remainDist)/20)))
+				page.page.Mouse.Scroll(remainDist, 0, steps)
+			} else {
+				currentPosInfo, _ := page.EvalJS(`() => ({ scrollY: window.scrollY })`)
+				currentY := float64(currentPosInfo.Get("scrollY").Int())
+				remainDist := targetScrollY - currentY
+
+				steps := int(math.Max(5, math.Min(30, math.Abs(remainDist)/20)))
+				page.page.Mouse.Scroll(0, remainDist, steps)
+			}
+			break
+		}
+
+		stepCount := int(math.Max(1, math.Abs(step.distance)/10))
+
+		overscrollProb := 0.05
+
+		if expectedDuration > time.Second*8 {
+			overscrollProb = 0.12
+		}
+
+		progress := float64(i) / float64(len(steps)-1)
+		if progress > 0.3 && progress < 0.7 {
+			overscrollProb += 0.05
+		}
+
+		if math.Abs(scrollDistance) > 500 {
+			overscrollProb += 0.05
+		}
+
+		if rand.Float64() < overscrollProb && i < len(steps)-2 {
+			overscrollFactor := 1.3 + 0.5*rand.Float64()
+			overscrollStep := step.distance * overscrollFactor
+			overscrollStepCount := int(math.Max(1, math.Abs(overscrollStep)/10))
+
+			var jitterX, jitterY float64
+			if isHorizontal {
+				jitterY = (rand.Float64()*2 - 1) * math.Min(10, math.Abs(overscrollStep)*0.05)
+				page.page.Mouse.Scroll(overscrollStep, jitterY, overscrollStepCount)
+			} else {
+				jitterX = (rand.Float64()*2 - 1) * math.Min(10, math.Abs(overscrollStep)*0.05)
+				page.page.Mouse.Scroll(jitterX, overscrollStep, overscrollStepCount)
+			}
+
+			time.Sleep(time.Duration(float64(step.delay) * timeAdjustFactor * (0.2 + 0.2*rand.Float64())))
+
+			backFactor := 0.4 + 0.2*rand.Float64()
+			backStep := -overscrollStep * backFactor
+			backStepCount := int(math.Max(1, math.Abs(backStep)/10))
+
+			if isHorizontal {
+				jitterY = (rand.Float64()*2 - 1) * math.Min(8, math.Abs(backStep)*0.04)
+				page.page.Mouse.Scroll(backStep, jitterY, backStepCount)
+			} else {
+				jitterX = (rand.Float64()*2 - 1) * math.Min(8, math.Abs(backStep)*0.04)
+				page.page.Mouse.Scroll(jitterX, backStep, backStepCount)
+			}
+
+			time.Sleep(time.Duration(float64(step.delay) * timeAdjustFactor * (0.2 + 0.2*rand.Float64())))
+
+			if isHorizontal {
+				jitterY = (rand.Float64()*2 - 1) * math.Min(5, math.Abs(step.distance)*0.03)
+				page.page.Mouse.Scroll(step.distance, jitterY, stepCount)
+			} else {
+				jitterX = (rand.Float64()*2 - 1) * math.Min(5, math.Abs(step.distance)*0.03)
+				page.page.Mouse.Scroll(jitterX, step.distance, stepCount)
+			}
+
+			time.Sleep(time.Duration(float64(step.delay) * timeAdjustFactor * (0.3 + 0.2*rand.Float64())))
+		} else {
+			var jitterX, jitterY float64
+
+			if isHorizontal {
+				jitterY = (rand.Float64()*2 - 1) * math.Min(5, math.Abs(step.distance)*0.03)
+				page.page.Mouse.Scroll(step.distance, jitterY, stepCount)
+			} else {
+				jitterX = (rand.Float64()*2 - 1) * math.Min(5, math.Abs(step.distance)*0.03)
+				page.page.Mouse.Scroll(jitterX, step.distance, stepCount)
+			}
+
+			if i < len(steps)-1 {
+				delayJitter := 0.9 + 0.2*rand.Float64()
+				time.Sleep(time.Duration(float64(step.delay) * timeAdjustFactor * delayJitter))
+			}
+		}
+	}
+
+	elapsedTime := time.Since(startTime)
+
+	remainingTime := expectedDuration - elapsedTime
+	if remainingTime > 0 && time.Now().Before(deadline) {
+		var remainDistCheck float64
+		if isHorizontal {
+			viewportCheck, _ := page.EvalJS(`() => ({ scrollX: window.scrollX })`)
+			currentCheckX := float64(viewportCheck.Get("scrollX").Int())
+			remainDistCheck = math.Abs(targetScrollX - currentCheckX)
+		} else {
+			viewportCheck, _ := page.EvalJS(`() => ({ scrollY: window.scrollY })`)
+			currentCheckY := float64(viewportCheck.Get("scrollY").Int())
+			remainDistCheck = math.Abs(targetScrollY - currentCheckY)
+		}
+
+		reserveTimeRatio := 0.05
+		if remainDistCheck > 50 {
+			reserveTimeRatio = math.Min(0.1, 0.05+remainDistCheck/1000)
+		}
+
+		waitTime := remainingTime - time.Duration(float64(expectedDuration)*reserveTimeRatio)
+		deadlineWait := time.Until(deadline)
+		if waitTime > deadlineWait {
+			waitTime = deadlineWait
+		}
+		if waitTime > 0 {
+			time.Sleep(waitTime)
+		}
+	}
+
+	if !time.Now().After(deadline) {
+		var remainingDistance float64
+		if isHorizontal {
+			viewportInfo, _ = page.EvalJS(`() => ({ scrollX: window.scrollX })`)
+			currentX := float64(viewportInfo.Get("scrollX").Int())
+			remainingDistance = targetScrollX - currentX
+		} else {
+			viewportInfo, _ = page.EvalJS(`() => ({ scrollY: window.scrollY })`)
+			currentY := float64(viewportInfo.Get("scrollY").Int())
+			remainingDistance = targetScrollY - currentY
+		}
+
+		elapsedTime = time.Since(startTime)
+		remainingTime = expectedDuration - elapsedTime
+
+		if math.Abs(remainingDistance) > 10 && time.Now().Before(deadline) {
+			finalStepCount := int(math.Max(1, math.Abs(remainingDistance)/10))
+			if remainingTime < 0 {
+				finalStepCount = 1
+			}
+
+			if isHorizontal {
+				page.page.Mouse.Scroll(remainingDistance, 0, finalStepCount)
+			} else {
+				page.page.Mouse.Scroll(0, remainingDistance, finalStepCount)
+			}
+		}
+	}
+
+	return e.ROD().ScrollIntoView()
 }
