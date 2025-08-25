@@ -109,7 +109,7 @@ func (b *Browser) init() (err error) {
 	} else {
 		b.isCustomWSEndpoint = true
 	}
-	b.id = ztype.DecimalToAny(int(zstring.UUID()), 64)
+	b.id = ztype.ToString(zstring.UUID())
 	b.Browser = rod.New().ControlURL(b.options.WSEndpoint)
 
 	for _, v := range b.before {
