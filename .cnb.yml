@@ -3,6 +3,12 @@ include:
   - https://cnb.cool/zls-tools/vm/-/blob/main/tools/sync-github-zlsgo.yml
 
 $:
+  vscode:
+    clouddev:
+      imports: https://cnb.cool/zls-tools/env/-/blob/main/envs.yml
+      runner:
+          tags: cnb:arch:amd64
+          cpus: 10
   push:
     sync_github:
       env:
