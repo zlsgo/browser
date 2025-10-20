@@ -9,6 +9,8 @@ github.com/mediabuyerbot/go-crx3 v1.5.1/go.mod h1:B10Qyzrd2KbHYz2DQU9etINb0CLRI6
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/sohaha/zlsgo v1.7.19-0.20250520064226-e335ed952aa2 h1:xzhGF8WXKB3f5CzmIx11tkt3/7BO1XgPtioHBRrtS9g=
 github.com/sohaha/zlsgo v1.7.19-0.20250520064226-e335ed952aa2/go.mod h1:MGbu4/f0NIgts6UHKntPoONHMMgFUmJvqMUtQww18L8=
+github.com/sohaha/zlsgo v1.7.19-0.20250821063740-f62f4dffb58d h1:iME23x9IaYmfXr4wJckV6VuCGzmNK4oL3rmqDQOjkXM=
+github.com/sohaha/zlsgo v1.7.19-0.20250821063740-f62f4dffb58d/go.mod h1:7LViqB5ll09RnlU5V5AW0oBnqFg260/q+B/SGDNNdmQ=
 github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
 github.com/ysmood/fetchup v0.2.3 h1:ulX+SonA0Vma5zUFXtv52Kzip/xe7aj4vqT5AJwQ+ZQ=
 github.com/ysmood/fetchup v0.2.3/go.mod h1:xhibcRKziSvol0H1/pj33dnKrYyI2ebIvz5cOOkYGns=
